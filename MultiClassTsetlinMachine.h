@@ -2,7 +2,9 @@
 #define _MULTI_CLASS_TSETLIN_MACHINE_H_
 
 #include <stdio.h>
-#include <unistd.h>
+#include <pthread.h> // compile with -lpthread
+#include <time.h>
+#include <string.h>
 
 #include "TsetlinMachine.h"
 #include "ClassData.h"
@@ -15,23 +17,15 @@ struct TsetlinMachineRun {
 	DataSet* data;
 };
 
-void initializeClass(TsetlinMachineRun* tmr, DataSet* trainData, int id) {
-	tmr->id = id;
-	initialize(&tmr->tm);
-	tmr->epoch = 0;
-	tmr->dataIndex = 0;
-	tmr->data = trainData;
-}
-
 void initialize(TsetlinMachineRun* mctm, DataSet* trainData) {
-	for(int i=0; i<CLASSES; i++)
-		initializeClass(&mctm[i], &trainData[i], i);
-}
-
-TsetlinMachineRun* createSingleClassTsetlinMachine(DataSet* trainData, int id) {
-	TsetlinMachineRun* tmr = (TsetlinMachineRun*) malloc(sizeof(TsetlinMachineRun));
-	initializeClass(tmr, trainData, id);
-	return tmr;
+	for(int i=0; i<CLASSES; i++) {
+		mctm[i].id = i;
+		initialize(&mctm[i].tm);
+		mctm[i].epoch = 0;
+		mctm[i].dataIndex = 0;
+		mctm[i].data = &trainData[i];
+		
+	}
 }
 
 TsetlinMachineRun* createMultiClassTsetlinMachine(DataSet* trainData) {
@@ -90,6 +84,24 @@ void saveState(TsetlinMachineRun* mctm, int step) {
 	}
 }
 
+template<typename T>
+void parallelize(int threads, void *(*proc) (void *), T *arg, int startIndex, int total) {
+	if(startIndex+threads>=total)
+		threads = total-startIndex;
+	pthread_t* ids = (pthread_t*) malloc(threads*sizeof(pthread_t));
+	for(int i=0; i<threads; i++) {
+		int err = pthread_create(&ids[i], NULL, proc, &arg[i+startIndex]);
+		if(err) {
+			printf("pthread_create error %d\n", err);
+			exit(EXIT_FAILURE);
+		}
+	}
+	for(int i=0; i<threads; i++) {
+		pthread_join(ids[i], NULL);
+	}
+	free(ids);
+}
+
 void trainClass(TsetlinMachineRun* tmr) {
 	// clock_t start = clock();
 	DataSet* data = tmr->data;
@@ -108,10 +120,20 @@ void trainClass(TsetlinMachineRun* tmr) {
 	// printf("[C%d] train finished @ %f s\n", tmr->id, ((double) (clock()-start)) / CLOCKS_PER_SEC);
 }
 
+static void* trainThread(void *arg) {
+	trainClass((TsetlinMachineRun*) arg);
+	return NULL;
+}
+
+void parallelTrain(TsetlinMachineRun* mctm) {
+	for(int i=0; i<CLASSES; i+=PARALLEL_TRAIN)
+		parallelize(PARALLEL_TRAIN, trainThread, mctm, i, CLASSES);
+}
+
 int inferClass(TsetlinMachineRun* mctm, int input[FEATURES]) {
 	int maxClassSum = 0;
 	int maxClass = 0;
-	for(int i=0; i<CLASSES; i++) {
+	for(int i=0; i<CLASSES; i++) {	
 		int classSum = score(&mctm[i].tm, input);
 		if(i==0 || maxClassSum < classSum) {
 			maxClassSum = classSum;
@@ -121,77 +143,30 @@ int inferClass(TsetlinMachineRun* mctm, int input[FEATURES]) {
 	return maxClass;
 }
 
-int inferClassPar(int pipes[CLASSES][2]) {
-	int maxClassSum = 0;
-	int maxClass = 0;
-	for(int i=0; i<CLASSES; i++) {
-		int classSum;
-		read(pipes[i][0], &classSum, sizeof(int));
-		if(i==0 || maxClassSum < classSum) {
-			maxClassSum = classSum;
-			maxClass = i;
+float evaluateClass(TsetlinMachineRun* mctm, int cls, int matchOutput, DataSet* data) {
+	int errors = 0;
+	int count = 0;
+	for(int i=0; i<data->num; i++) {
+		if(data->outputs[i]==matchOutput) {
+			count++;
+			if(inferClass(mctm, data->inputs[i])!=cls)
+				errors++;
 		}
 	}
-	return maxClass;
-}
-
-float evaluateClass(TsetlinMachineRun* tmr, int cls, int matchOutput, DataSet* data, int (*pipes)[CLASSES][2]) {
-	if(pipes==NULL) { // single thread
-		int errors = 0;
-		int count = 0;
-		for(int i=0; i<data->num; i++) {
-			if(data->outputs[i]==matchOutput) {
-				count++;
-				if(inferClass(tmr, data->inputs[i])!=cls)
-					errors++;
-			}
-		}
-		if(count==0)
-			return 0.0;
-		else
-			return 1.0 - errors / (float)count;
-	}
-	else if(tmr==NULL) { // parent
-		int errors = 0;
-		int count = 0;
-		for(int i=0; i<data->num; i++) {
-			if(data->outputs[i]==matchOutput) {
-				count++;
-				if(inferClassPar(*pipes)!=cls)
-					errors++;
-			}
-		}
-		if(count==0)
-			return 0.0;
-		else
-			return 1.0 - errors / (float)count;
-	}
-	else { // child
-		int pipe = (*pipes)[tmr->id][1];
-		for(int i=0; i<data->num; i++) {
-			if(data->outputs[i]==matchOutput) {
-				int classSum = score(&tmr->tm, data->inputs[i]);
-				write(pipe, &classSum, sizeof(int));
-			}
-		}
+	if(count==0)
 		return 0.0;
-	}
+	else
+		return 1.0 - errors / (float)count;
 }
 
-void evaluateClasses(TsetlinMachineRun* tmr, DataSet data[], float acc[], int (*pipes)[CLASSES][2]) {
-	for(int i=0; i<CLASSES; i++) {
-		float a = evaluateClass(tmr, i, 1, &data[i], pipes);
-		if(acc!=NULL)
-			acc[i] = a;
-	}
+void evaluateClasses(TsetlinMachineRun* mctm, DataSet data[], float acc[]) {
+	for(int i=0; i<CLASSES; i++)
+		acc[i] = evaluateClass(mctm, i, 1, &data[i]);
 }
 
-void evaluateClassesComb(TsetlinMachineRun* tmr, DataSet* data, float acc[], int (*pipes)[CLASSES][2]) {
-	for(int i=0; i<CLASSES; i++) {
-		float a = evaluateClass(tmr, i, i, data, pipes);
-		if(acc!=NULL)
-			acc[i] = a;
-	}
+void evaluateClassesComb(TsetlinMachineRun* mctm, DataSet* data, float acc[]) {
+	for(int i=0; i<CLASSES; i++)
+		acc[i] = evaluateClass(mctm, i, i, data);
 }
 
 #endif

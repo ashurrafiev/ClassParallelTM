@@ -4,7 +4,7 @@ HDR = MultiClassTsetlinMachine.h TsetlinMachine.h TsetlinOptions.h TsetlinLogger
 all: mnist
 
 mnist: main.c $(HDR)
-	g++ -Wall -Wno-unused-result -O3 -ffast-math main.c -o mnist -lrt
+	g++ -Wall -Wno-unused-result -O3 -ffast-math main.c -o mnist -lpthread
 
 clean:
 	rm mnist
