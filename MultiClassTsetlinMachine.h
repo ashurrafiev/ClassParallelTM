@@ -2,7 +2,8 @@
 #define _MULTI_CLASS_TSETLIN_MACHINE_H_
 
 #include <stdio.h>
-#include <unistd.h>
+#include <time.h>
+#include <omp.h>
 
 #include "TsetlinMachine.h"
 #include "ClassData.h"
@@ -15,23 +16,15 @@ struct TsetlinMachineRun {
 	DataSet* data;
 };
 
-void initializeClass(TsetlinMachineRun* tmr, DataSet* trainData, int id) {
-	tmr->id = id;
-	initialize(&tmr->tm);
-	tmr->epoch = 0;
-	tmr->dataIndex = 0;
-	tmr->data = trainData;
-}
-
 void initialize(TsetlinMachineRun* mctm, DataSet* trainData) {
-	for(int i=0; i<CLASSES; i++)
-		initializeClass(&mctm[i], &trainData[i], i);
-}
-
-TsetlinMachineRun* createSingleClassTsetlinMachine(DataSet* trainData, int id) {
-	TsetlinMachineRun* tmr = (TsetlinMachineRun*) malloc(sizeof(TsetlinMachineRun));
-	initializeClass(tmr, trainData, id);
-	return tmr;
+	for(int i=0; i<CLASSES; i++) {
+		mctm[i].id = i;
+		initialize(&mctm[i].tm);
+		mctm[i].epoch = 0;
+		mctm[i].dataIndex = 0;
+		mctm[i].data = &trainData[i];
+		
+	}
 }
 
 TsetlinMachineRun* createMultiClassTsetlinMachine(DataSet* trainData) {
@@ -108,6 +101,14 @@ void trainClass(TsetlinMachineRun* tmr) {
 	// printf("[C%d] train finished @ %f s\n", tmr->id, ((double) (clock()-start)) / CLOCKS_PER_SEC);
 }
 
+void parallelTrain(TsetlinMachineRun* mctm) {
+	omp_set_dynamic(0);
+	omp_set_num_threads(PARALLEL_TRAIN);
+	#pragma omp parallel for
+	for(int i=0; i<CLASSES; i++)
+		trainClass(&mctm[i]);
+}
+
 int inferClass(TsetlinMachineRun* mctm, int input[FEATURES]) {
 	int maxClassSum = 0;
 	int maxClass = 0;
@@ -121,77 +122,30 @@ int inferClass(TsetlinMachineRun* mctm, int input[FEATURES]) {
 	return maxClass;
 }
 
-int inferClassPar(int pipes[CLASSES][2]) {
-	int maxClassSum = 0;
-	int maxClass = 0;
-	for(int i=0; i<CLASSES; i++) {
-		int classSum;
-		read(pipes[i][0], &classSum, sizeof(int));
-		if(i==0 || maxClassSum < classSum) {
-			maxClassSum = classSum;
-			maxClass = i;
+float evaluateClass(TsetlinMachineRun* mctm, int cls, int matchOutput, DataSet* data) {
+	int errors = 0;
+	int count = 0;
+	for(int i=0; i<data->num; i++) {
+		if(data->outputs[i]==matchOutput) {
+			count++;
+			if(inferClass(mctm, data->inputs[i])!=cls)
+				errors++;
 		}
 	}
-	return maxClass;
-}
-
-float evaluateClass(TsetlinMachineRun* tmr, int cls, int matchOutput, DataSet* data, int (*pipes)[CLASSES][2]) {
-	if(pipes==NULL) { // single thread
-		int errors = 0;
-		int count = 0;
-		for(int i=0; i<data->num; i++) {
-			if(data->outputs[i]==matchOutput) {
-				count++;
-				if(inferClass(tmr, data->inputs[i])!=cls)
-					errors++;
-			}
-		}
-		if(count==0)
-			return 0.0;
-		else
-			return 1.0 - errors / (float)count;
-	}
-	else if(tmr==NULL) { // parent
-		int errors = 0;
-		int count = 0;
-		for(int i=0; i<data->num; i++) {
-			if(data->outputs[i]==matchOutput) {
-				count++;
-				if(inferClassPar(*pipes)!=cls)
-					errors++;
-			}
-		}
-		if(count==0)
-			return 0.0;
-		else
-			return 1.0 - errors / (float)count;
-	}
-	else { // child
-		int pipe = (*pipes)[tmr->id][1];
-		for(int i=0; i<data->num; i++) {
-			if(data->outputs[i]==matchOutput) {
-				int classSum = score(&tmr->tm, data->inputs[i]);
-				write(pipe, &classSum, sizeof(int));
-			}
-		}
+	if(count==0)
 		return 0.0;
-	}
+	else
+		return 1.0 - errors / (float)count;
 }
 
-void evaluateClasses(TsetlinMachineRun* tmr, DataSet data[], float acc[], int (*pipes)[CLASSES][2]) {
-	for(int i=0; i<CLASSES; i++) {
-		float a = evaluateClass(tmr, i, 1, &data[i], pipes);
-		if(acc!=NULL)
-			acc[i] = a;
-	}
+void evaluateClasses(TsetlinMachineRun* mctm, DataSet data[], float acc[]) {
+	for(int i=0; i<CLASSES; i++)
+		acc[i] = evaluateClass(mctm, i, 1, &data[i]);
 }
 
-void evaluateClassesComb(TsetlinMachineRun* tmr, DataSet* data, float acc[], int (*pipes)[CLASSES][2]) {
-	for(int i=0; i<CLASSES; i++) {
-		float a = evaluateClass(tmr, i, i, data, pipes);
-		if(acc!=NULL)
-			acc[i] = a;
-	}
+void evaluateClassesComb(TsetlinMachineRun* mctm, DataSet* data, float acc[]) {
+	for(int i=0; i<CLASSES; i++)
+		acc[i] = evaluateClass(mctm, i, i, data);
 }
 
 #endif
