@@ -41,12 +41,10 @@ void setParams(int argc, char**argv) {
 	addFlagParam(&params, "-log-tastates", &LOG_TASTATES, 0);
 	addFlagParam(&params, "-log-status", &LOG_STATUS, 0);
 	addFlagParam(&params, "-log-append", &LOG_APPEND, 0);
-	addFlagParam(&params, "-load-state", &LOAD_STATE, 0);
-	addStrParam(&params, "-load-state-path", LOAD_STATE_PATH, 1024, 0);
+	addStrParam(&params, "-load-state", LOAD_STATE_FMT, 1024, "path format, %d is replaced by a class index");
 	addFlagParam(&params, "-remap-state", &REMAP_STATE, 0);
-	addFlagParam(&params, "-save-state", &SAVE_STATE, 0);
-	addStrParam(&params, "-save-state-path", SAVE_STATE_PATH, 1024, 0);
-	addIntParam(&params, "-par-train", &PARALLEL_TRAIN, 0);
+	addStrParam(&params, "-save-state", SAVE_STATE_FMT, 1024, "path format, %d is replaced by a class index");
+	addIntParam(&params, "-par", &PARALLEL_TRAIN, 0);
 	if(!parseParams(&params, argc, argv)) {
 		exit(EXIT_FAILURE);
 	}
@@ -114,9 +112,6 @@ int main(int argc, char**argv) {
 	setParams(argc, argv);
 	readData();
 
-	//TsetlinMachineRun *mctm = createMultiClassTsetlinMachine(trainData);
-	//int step = loadState(mctm);
-
 	LogTAStates logStates;
 	startLogTAStates(&logStates);
 	LogStatus log;
@@ -142,8 +137,8 @@ int main(int argc, char**argv) {
 						close(pipes[j][1]);
 				}
 				
-				TsetlinMachineRun *tmr = createSingleClassTsetlinMachine(&trainData[i], i);
-				int step = 0; //loadState(mctm);
+				TsetlinMachineRun *tmr = createTsetlinMachine(&trainData[i], i);
+				int step = loadState(tmr);
 
 				for(int s=0; s<TRAIN_STEPS; s++) {
 					unsigned long startStep = cputime();
@@ -155,7 +150,7 @@ int main(int argc, char**argv) {
 				printf("FRK[%d] finished at EP.%d : %d\n", i, tmr->epoch, tmr->dataIndex);
 				evaluateAcc(tmr, &log, -1, 0, &pipes);
 				close(pipes[i][1]);
-				// saveState(mctm, step);
+				saveState(tmr, step);
 				_exit(0);
 			}
 			else { // parent
@@ -172,14 +167,10 @@ int main(int argc, char**argv) {
 	}
 	else {
 		TsetlinMachineRun *mctm = createMultiClassTsetlinMachine(trainData);
-		int step = 0; //loadState(mctm);
+		int step = 0;
+		for(int i=0; i<CLASSES; i++)
+			step = loadState(&mctm[i]);
 
-		/*if(step==0) {
-			evaluateAcc(mctm, &log, step, 0, NULL);
-			logTAStates(&logStates, step, mctm);
-			logStatus(&log, step, TRAIN_STEP_SIZE, mctm);
-		}*/
-		
 		for(int s=0; s<TRAIN_STEPS; s++) {
 			unsigned long startStep = cputime();
 			for(int i=0; i<CLASSES; i++)
@@ -194,7 +185,9 @@ int main(int argc, char**argv) {
 		for(int i=0; i<CLASSES; i++)
 			printf("  [%d] finished at EP.%d : %d\n", i, mctm[i].epoch, mctm[i].dataIndex);
 		evaluateAcc(mctm, &log, -1, 1, NULL);
-		// saveState(mctm, step);
+		for(int i=0; i<CLASSES; i++)
+			saveState(&mctm[i], step);
+
 	}
 	printf("TOTAL train time (wallclock): %.3f\n", elapsedWallclock(startTrain));
 

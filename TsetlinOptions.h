@@ -13,7 +13,7 @@ double L_NORM_THRESHOLD = 0.35;
 #define NUM_EXAMPLES_TRAIN 0
 #define NUM_EXAMPLES_TEST 0
 
-#define INPUT_DATA_PATH "../../pkbits"
+#define INPUT_DATA_PATH "../../poets/tsetlin/pkbits"
 
 int TRAIN_STEP_SIZE = 100;
 int TRAIN_STEPS = 1;
@@ -28,11 +28,9 @@ int LOG_TASTATES = 0;
 int LOG_STATUS = 0;
 int LOG_APPEND = 0;
 
-int LOAD_STATE = 0;
-char LOAD_STATE_PATH[1024] = "in_state.csv";
+char LOAD_STATE_FMT[1024] = "";
 int REMAP_STATE = 0;
-int SAVE_STATE = 0;
-char SAVE_STATE_PATH[1024] = "out_state.csv";
+char SAVE_STATE_FMT[1024] = "";
 
 int PARALLEL_TRAIN = 1;
 

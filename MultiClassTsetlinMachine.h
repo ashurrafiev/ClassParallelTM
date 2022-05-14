@@ -23,12 +23,7 @@ void initializeClass(TsetlinMachineRun* tmr, DataSet* trainData, int id) {
 	tmr->data = trainData;
 }
 
-void initialize(TsetlinMachineRun* mctm, DataSet* trainData) {
-	for(int i=0; i<CLASSES; i++)
-		initializeClass(&mctm[i], &trainData[i], i);
-}
-
-TsetlinMachineRun* createSingleClassTsetlinMachine(DataSet* trainData, int id) {
+TsetlinMachineRun* createTsetlinMachine(DataSet* trainData, int id) {
 	TsetlinMachineRun* tmr = (TsetlinMachineRun*) malloc(sizeof(TsetlinMachineRun));
 	initializeClass(tmr, trainData, id);
 	return tmr;
@@ -36,62 +31,63 @@ TsetlinMachineRun* createSingleClassTsetlinMachine(DataSet* trainData, int id) {
 
 TsetlinMachineRun* createMultiClassTsetlinMachine(DataSet* trainData) {
 	TsetlinMachineRun* mctm = (TsetlinMachineRun*) malloc(CLASSES*sizeof(TsetlinMachineRun));
-	initialize(mctm, trainData);
+	for(int i=0; i<CLASSES; i++)
+		initializeClass(&mctm[i], &trainData[i], i);
 	return mctm;
 }
 
-void remapState(TsetlinMachineRun* mctm) {
-	for(int i=0; i<CLASSES; i++)
-		for(int j=0; j<CLAUSES; j++)
-			for(int k=0; k<LITERALS; k++) {
-				int* ta = &mctm[i].tm.clauses[j].ta[k];
-				if(INCLUDE_LITERAL(*ta))
-					*ta = 1;
-				else
-					*ta = -NUM_STATES+1;
-			}
+void remapState(TsetlinMachineRun* tmr) {
+	for(int j=0; j<CLAUSES; j++)
+		for(int k=0; k<LITERALS; k++) {
+			int* ta = &tmr->tm.clauses[j].ta[k];
+			if(INCLUDE_LITERAL(*ta))
+				*ta = 1;
+			else
+				*ta = -NUM_STATES+1;
+		}
 }
 
-int loadState(TsetlinMachineRun* mctm) {
+int loadState(TsetlinMachineRun* tmr) {
 	int step = 0;
-	if(LOAD_STATE) {
-		FILE* fp = fopen(LOAD_STATE_PATH, "rt");
+	if(LOAD_STATE_FMT[0]) {
+		char s[1024];
+		sprintf(s, LOAD_STATE_FMT, tmr->id);
+		FILE* fp = fopen(s, "rt");
 		if(fp == NULL) {
-			printf("Error reading %s\n", LOAD_STATE_PATH);
+			printf("Error reading %s\n", s);
 			exit(EXIT_FAILURE);
 		}
-		fscanf(fp, "%d", &step);
-		for(int i=0; i<CLASSES; i++)
-			for(int j=0; j<CLAUSES; j++)
-				for(int k=0; k<LITERALS; k++)
-					fscanf(fp, "%d", &mctm[i].tm.clauses[j].ta[k]);
+		fscanf(fp, "%d %d %d", &step, &tmr->epoch, &tmr->dataIndex);
+		for(int j=0; j<CLAUSES; j++)
+			for(int k=0; k<LITERALS; k++)
+				fscanf(fp, "%d", &tmr->tm.clauses[j].ta[k]);
 		fclose(fp);
 	}
 
 	if(REMAP_STATE)
-		remapState(mctm);
+		remapState(tmr);
 	return step;
 }
 
-void saveState(TsetlinMachineRun* mctm, int step) {
-	if(SAVE_STATE) {
-		FILE* fp = fopen(SAVE_STATE_PATH, "wt");
+void saveState(TsetlinMachineRun* tmr, int step) {
+	if(SAVE_STATE_FMT[0]) {
+		char s[1024];
+		sprintf(s, SAVE_STATE_FMT, tmr->id);
+		FILE* fp = fopen(s, "wt");
 		if(fp == NULL) {
-			printf("Error writing %s\n", SAVE_STATE_PATH);
+			printf("Error writing %s\n", s);
 			exit(EXIT_FAILURE);
 		}
-		fprintf(fp, "%d", step);
-		for(int i=0; i<CLASSES; i++)
-			for(int j=0; j<CLAUSES; j++)
-				for(int k=0; k<LITERALS; k++)
-					fprintf(fp, "\t%d", mctm[i].tm.clauses[j].ta[k]);
+		fprintf(fp, "%d\t%d\t%d\n", step, tmr->epoch, tmr->dataIndex);
+		for(int j=0; j<CLAUSES; j++)
+			for(int k=0; k<LITERALS; k++)
+				fprintf(fp, "\t%d", tmr->tm.clauses[j].ta[k]);
 		fprintf(fp, "\n");
 		fclose(fp);
 	}
 }
 
 void trainClass(TsetlinMachineRun* tmr) {
-	// clock_t start = clock();
 	DataSet* data = tmr->data;
 	int numData = data->num;
 	int index = tmr->dataIndex;
@@ -105,7 +101,6 @@ void trainClass(TsetlinMachineRun* tmr) {
 		}
 	}
 	tmr->dataIndex = index;
-	// printf("[C%d] train finished @ %f s\n", tmr->id, ((double) (clock()-start)) / CLOCKS_PER_SEC);
 }
 
 int inferClass(TsetlinMachineRun* mctm, int input[FEATURES]) {
