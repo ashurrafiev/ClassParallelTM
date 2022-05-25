@@ -15,6 +15,9 @@ double L_NORM_THRESHOLD = 0.35;
 
 #define INPUT_DATA_PATH "../../poets/tsetlin/pkbits"
 
+#define TRAIN_DATA_FMT "/mnist-train-cls%d.bin"
+#define TEST_DATA "/mnist-test.bin"
+
 int TRAIN_STEP_SIZE = 100;
 int TRAIN_STEPS = 1;
 
@@ -22,10 +25,11 @@ int RAND_SEED = 0;
 int ACC_EVAL_TRAIN = 0;
 int ACC_EVAL_TEST = 0;
 
-#define ENABLE_COUNTERS 0
+#define ENABLE_COUNTERS 1
 
 int LOG_TASTATES = 0;
 int LOG_STATUS = 0;
+int LOG_ACCEVAL = 0;
 int LOG_APPEND = 0;
 
 char LOAD_STATE_FMT[1024] = "";

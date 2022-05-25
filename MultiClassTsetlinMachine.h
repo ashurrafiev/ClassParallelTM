@@ -51,16 +51,21 @@ int loadState(TsetlinMachineRun* tmr) {
 	int step = 0;
 	if(LOAD_STATE_FMT[0]) {
 		char s[1024];
-		sprintf(s, LOAD_STATE_FMT, tmr->id);
+		sprintf(s, LOAD_STATE_FMT, tmr ? tmr->id : 0);
 		FILE* fp = fopen(s, "rt");
 		if(fp == NULL) {
 			printf("Error reading %s\n", s);
 			exit(EXIT_FAILURE);
 		}
-		fscanf(fp, "%d %d %d", &step, &tmr->epoch, &tmr->dataIndex);
-		for(int j=0; j<CLAUSES; j++)
-			for(int k=0; k<LITERALS; k++)
-				fscanf(fp, "%d", &tmr->tm.clauses[j].ta[k]);
+		if(tmr==NULL) {
+			fscanf(fp, "%d", &step);
+		}
+		else {
+			fscanf(fp, "%d %d %d", &step, &tmr->epoch, &tmr->dataIndex);
+			for(int j=0; j<CLAUSES; j++)
+				for(int k=0; k<LITERALS; k++)
+					fscanf(fp, "%d", &tmr->tm.clauses[j].ta[k]);
+		}
 		fclose(fp);
 	}
 

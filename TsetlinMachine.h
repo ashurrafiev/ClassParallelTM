@@ -23,7 +23,9 @@ struct TsetlinMachine {
 	int flips;
 	int countType1;
 	int countType2;
-	int voteSum;
+	int absVoteSum;
+	int voteSum0;
+	int voteSum1;
 	bool prevInc[CLAUSES][LITERALS];
 };
 
@@ -111,7 +113,9 @@ void initialize(TsetlinMachine* tm) {
 	tm->flips = 0;
 	tm->countType1 = 0;
 	tm->countType2 = 0;
-	tm->voteSum = 0;
+	tm->absVoteSum = 0;
+	tm->voteSum0 = 0;
+	tm->voteSum1 = 0;
 }
 	
 TsetlinMachine* createTsetlinMachine() {
@@ -189,7 +193,11 @@ void update(TsetlinMachine* tm, int input[], int output) {
 	int classSum = calculateVoting(tm);
 
 	#if ENABLE_COUNTERS
-		tm->voteSum += abs(classSum);
+		tm->absVoteSum += abs(classSum);
+		if(output)
+			tm->voteSum1 += classSum;
+		else
+			tm->voteSum0 += classSum;
 	#endif
 	
 	for(int j=0; j<CLAUSES; j++) {

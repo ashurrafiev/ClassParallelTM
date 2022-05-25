@@ -31,20 +31,21 @@ double elapsedCpu(unsigned long start) {
 void setParams(int argc, char**argv) {
 	ParseParamDefs params;
 	startParamDefs(&params);
-	addIntParam(&params, "-step-size", &TRAIN_STEP_SIZE, 0);
-	addIntParam(&params, "-steps", &TRAIN_STEPS, 0);
+	addIntParam(&params, "-step-size", &TRAIN_STEP_SIZE, NULL);
+	addIntParam(&params, "-steps", &TRAIN_STEPS, NULL);
 	addDoubleParam(&params, "-s", &L_RATE, "learning rate s");
 	addDoubleParam(&params, "-t", &L_NORM_THRESHOLD, "threshold T (normalised)");
-	addIntParam(&params, "-rand-seed", &RAND_SEED, 0);
-	addIntParam(&params, "-acc-eval-train", &ACC_EVAL_TRAIN, 0);
-	addIntParam(&params, "-acc-eval-test", &ACC_EVAL_TEST, 0);
-	addFlagParam(&params, "-log-tastates", &LOG_TASTATES, 0);
-	addFlagParam(&params, "-log-status", &LOG_STATUS, 0);
-	addFlagParam(&params, "-log-append", &LOG_APPEND, 0);
+	addIntParam(&params, "-rand-seed", &RAND_SEED, NULL);
+	addIntParam(&params, "-acc-eval-train", &ACC_EVAL_TRAIN, NULL);
+	addIntParam(&params, "-acc-eval-test", &ACC_EVAL_TEST, NULL);
+	addFlagParam(&params, "-log-tastates", &LOG_TASTATES, NULL);
+	addFlagParam(&params, "-log-status", &LOG_STATUS, NULL);
+	addFlagParam(&params, "-log-acc", &LOG_ACCEVAL, NULL);
+	addFlagParam(&params, "-log-append", &LOG_APPEND, NULL);
 	addStrParam(&params, "-load-state", LOAD_STATE_FMT, 1024, "path format, %d is replaced by a class index");
-	addFlagParam(&params, "-remap-state", &REMAP_STATE, 0);
+	addFlagParam(&params, "-remap-state", &REMAP_STATE, NULL);
 	addStrParam(&params, "-save-state", SAVE_STATE_FMT, 1024, "path format, %d is replaced by a class index");
-	addIntParam(&params, "-par", &PARALLEL_TRAIN, 0);
+	addIntParam(&params, "-par", &PARALLEL_TRAIN, NULL);
 	if(!parseParams(&params, argc, argv)) {
 		exit(EXIT_FAILURE);
 	}
@@ -67,25 +68,25 @@ void setParams(int argc, char**argv) {
 void readData(void) {
 	char s[1024];
 	for(int i=0; i<CLASSES; i++) {
-		sprintf(s, INPUT_DATA_PATH "/mnist-train-cls%d.bin", i);
+		sprintf(s, INPUT_DATA_PATH TRAIN_DATA_FMT, i);
 		readPkBits(&trainData[i], 0, s);
 	}
-	readPkBits(&testData, 0, INPUT_DATA_PATH "/mnist-test.bin");
+	readPkBits(&testData, 0, INPUT_DATA_PATH TEST_DATA);
 }
 
-void evaluateAcc(TsetlinMachineRun* tmr, LogStatus* log, int step, bool print, int (*pipes)[CLASSES][2]) {
+void evaluateAcc(TsetlinMachineRun* tmr, LogAcc* acc, int step, bool print, int (*pipes)[CLASSES][2]) {
 	if((ACC_EVAL_TRAIN>0 && step==0)
 			|| (ACC_EVAL_TRAIN>0 && step%ACC_EVAL_TRAIN==0)
 			|| (ACC_EVAL_TRAIN==-1 && step==-1)) {
 		unsigned long startEval = cputime();
-		evaluateClasses(tmr, trainData, log->accTrain, pipes);
+		evaluateClasses(tmr, trainData, acc->accTrain, pipes);
 		if(pipes==NULL || tmr==NULL)
 			printf("Train acc eval time (cpu): %.3f\n", elapsedCpu(startEval));
 		if(print) {
 			float sum = 0;
 			for(int i=0; i<CLASSES; i++) {
-				sum += log->accTrain[i];
-				printf("  [%d] %f\n", i, log->accTrain[i]);
+				sum += acc->accTrain[i];
+				printf("  [%d] %f\n", i, acc->accTrain[i]);
 			}
 			printf("  AVG %f\n", sum/(float)CLASSES);
 		}
@@ -94,14 +95,14 @@ void evaluateAcc(TsetlinMachineRun* tmr, LogStatus* log, int step, bool print, i
 			|| (ACC_EVAL_TEST>0 && step%ACC_EVAL_TEST==0)
 			|| (ACC_EVAL_TEST==-1 && step==-1)) {
 		unsigned long startEval = cputime();
-		evaluateClassesComb(tmr, &testData, log->accTest, pipes);
+		evaluateClassesComb(tmr, &testData, acc->accTest, pipes);
 		if(pipes==NULL || tmr==NULL)
 			printf("Test acc eval time (cpu): %.3f\n", elapsedCpu(startEval));
 		if(print) {
 			float sum = 0;
 			for(int i=0; i<CLASSES; i++) {
-				sum += log->accTest[i];
-				printf("  [%d] %f\n", i, log->accTest[i]);
+				sum += acc->accTest[i];
+				printf("  [%d] %f\n", i, acc->accTest[i]);
 			}
 			printf("  AVG %f\n", sum/(float)CLASSES);
 		}
@@ -112,11 +113,9 @@ int main(int argc, char**argv) {
 	setParams(argc, argv);
 	readData();
 
-	LogTAStates logStates;
-	startLogTAStates(&logStates);
-	LogStatus log;
-	startLogStatus(&log);
-	
+	LogAcc acc;
+	startLogAcc(&acc);
+
 	unsigned long startTrain = wallclock();
 	if(PARALLEL_TRAIN) {
 		int pipes[CLASSES][2];
@@ -137,6 +136,12 @@ int main(int argc, char**argv) {
 						close(pipes[j][1]);
 				}
 				
+				// child loop
+				LogTAStates logStates;
+				LogStatus log;
+				startLogTAStates(i, &logStates);
+				startLogStatus(i, &log);
+				
 				TsetlinMachineRun *tmr = createTsetlinMachine(&trainData[i], i);
 				int step = loadState(tmr);
 
@@ -145,12 +150,19 @@ int main(int argc, char**argv) {
 					trainClass(tmr);
 					printf("FRK[%d] step %d time (cpu): %.3f\n", i, step, elapsedCpu(startStep));
 					step++;
+					
+					evaluateAcc(tmr, &acc, step, 0, &pipes);
+					logTAStates(&logStates, step, &tmr->tm);
+					logStatus(&log, step, TRAIN_STEP_SIZE, &tmr->tm);
 				}
 				
 				printf("FRK[%d] finished at EP.%d : %d\n", i, tmr->epoch, tmr->dataIndex);
-				evaluateAcc(tmr, &log, -1, 0, &pipes);
+				evaluateAcc(tmr, &acc, -1, 0, &pipes);
 				close(pipes[i][1]);
 				saveState(tmr, step);
+				
+				finishLogTAStates(&logStates);
+				finishLogStatus(&log);
 				_exit(0);
 			}
 			else { // parent
@@ -158,7 +170,14 @@ int main(int argc, char**argv) {
 			}
 		}
 		
-		evaluateAcc(NULL, &log, -1, 1, &pipes);
+		// parent loop
+		int step = loadState(NULL);
+		for(int s=0; s<TRAIN_STEPS; s++) {
+			step++;
+			evaluateAcc(NULL, &acc, step, 0, &pipes);
+			logAcc(&acc, step);
+		}
+		evaluateAcc(NULL, &acc, -1, 1, &pipes);
 		
 		for(int i=0; i<CLASSES; i++)
 			close(pipes[i][0]);
@@ -166,6 +185,13 @@ int main(int argc, char**argv) {
 			wait(NULL);
 	}
 	else {
+		LogTAStates logStates[CLASSES];
+		LogStatus log[CLASSES];
+		for(int i=0; i<CLASSES; i++) {
+			startLogTAStates(i, &logStates[i]);
+			startLogStatus(i, &log[i]);
+		}
+
 		TsetlinMachineRun *mctm = createMultiClassTsetlinMachine(trainData);
 		int step = 0;
 		for(int i=0; i<CLASSES; i++)
@@ -178,20 +204,25 @@ int main(int argc, char**argv) {
 			printf("SEQ step %d time (cpu): %.3f\n", step, elapsedCpu(startStep));
 			step++;
 			
-			evaluateAcc(mctm, &log, step, 1, NULL);
-			logTAStates(&logStates, step, mctm);
-			logStatus(&log, step, TRAIN_STEP_SIZE, mctm);
+			evaluateAcc(mctm, &acc, step, 0, NULL);
+			logAcc(&acc, step);
+			for(int i=0; i<CLASSES; i++) {
+				logTAStates(&logStates[i], step, &mctm[i].tm);
+				logStatus(&log[i], step, TRAIN_STEP_SIZE, &mctm[i].tm);
+			}
 		}
 		for(int i=0; i<CLASSES; i++)
 			printf("  [%d] finished at EP.%d : %d\n", i, mctm[i].epoch, mctm[i].dataIndex);
-		evaluateAcc(mctm, &log, -1, 1, NULL);
+		evaluateAcc(mctm, &acc, -1, 1, NULL);
 		for(int i=0; i<CLASSES; i++)
 			saveState(&mctm[i], step);
 
+		for(int i=0; i<CLASSES; i++) {
+			finishLogTAStates(&logStates[i]);
+			finishLogStatus(&log[i]);
+		}
 	}
+	finishLogAcc(&acc);
 	printf("TOTAL train time (wallclock): %.3f\n", elapsedWallclock(startTrain));
-
-	finishLogTAStates(&logStates);
-	finishLogStatus(&log);
 	return 0;
 }
