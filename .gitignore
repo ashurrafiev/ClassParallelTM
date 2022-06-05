@@ -5,6 +5,11 @@ preview
 
 bak/
 
+*.jar
+*.svg
+*.bat
+*$py.class
+
 # Just in case, OS files
 
 Thumbs.db
