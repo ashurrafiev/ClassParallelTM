@@ -25,13 +25,6 @@ int RAND_SEED = 0;
 int ACC_EVAL_TRAIN = 0;
 int ACC_EVAL_TEST = 0;
 
-#define ENABLE_COUNTERS 1
-
-int LOG_TASTATES = 0;
-int LOG_STATUS = 0;
-int LOG_ACCEVAL = 0;
-int LOG_APPEND = 0;
-
 char LOAD_STATE_FMT[1024] = "";
 int REMAP_STATE = 0;
 char SAVE_STATE_FMT[1024] = "";

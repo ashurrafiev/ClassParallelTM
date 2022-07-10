@@ -3,7 +3,7 @@
 
 #include <stdlib.h>
 
-#include "TsetlinOptions.h"
+#include "TsetlinLoggerDefs.h"
 
 #define LITERALS (FEATURES*2)
 
@@ -20,12 +20,7 @@ struct Clause {
 struct TsetlinMachine { 
 	Clause clauses[CLAUSES];
 	
-	int flips;
-	int countType1;
-	int countType2;
-	int absVoteSum;
-	int voteSum0;
-	int voteSum1;
+	TM_COUNTERS;
 	bool prevInc[CLAUSES][LITERALS];
 };
 
@@ -110,12 +105,7 @@ void initialize(TsetlinMachine* tm) {
 			// tm->clauses[j].ta[k+1] = 0;
 		}
 	}
-	tm->flips = 0;
-	tm->countType1 = 0;
-	tm->countType2 = 0;
-	tm->absVoteSum = 0;
-	tm->voteSum0 = 0;
-	tm->voteSum1 = 0;
+	RESET_COUNTERS(tm);
 }
 	
 TsetlinMachine* createTsetlinMachine() {

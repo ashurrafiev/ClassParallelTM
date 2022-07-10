@@ -3,14 +3,10 @@
 
 #include "MultiClassTsetlinMachine.h"
 
-#define LOG_TASTATES_PATH_FMT "c%d-spectrum.csv"
-#define LOG_STATUS_PATH_FMT "c%d-status.csv"
-#define LOG_ACCEVAL_PATH "acc.csv"
+#define TOTAL_STATES (MAX_STATE-MIN_STATE+1)
+#define STATE_INDEX(s) ((s)-MIN_STATE)
 
-#define MIN_STATE (-NUM_STATES+1)
-#define MAX_STATE (NUM_STATES)
-#define ABS_STATES (NUM_STATES*2)
-#define ABS_STATE(s) ((s)+NUM_STATES-1)
+// ------------------- TAStates -------------------
 
 struct LogTAStates {
 	int cls;
@@ -20,16 +16,14 @@ struct LogTAStates {
 void startLogTAStates(int cls, LogTAStates* log) {
 	if(!LOG_TASTATES)
 		return;
-	
 	log->cls = cls;
 	char s[1024];
-	sprintf(s, LOG_TASTATES_PATH_FMT, cls);
+	sprintf(s, LOG_TASTATES_PATH, cls);
 	log->fp = fopen(s, LOG_APPEND ? "at" : "wt");
 	if (log->fp == NULL) {
 		printf("Error writing %s\n", s);
 		exit(EXIT_FAILURE);
 	}
-	
 	if(!LOG_APPEND) {
 		fprintf(log->fp, "t\t");
 		for(int s=MIN_STATE; s<=MAX_STATE; s++) {
@@ -43,17 +37,14 @@ void startLogTAStates(int cls, LogTAStates* log) {
 void logTAStates(LogTAStates* log, int step, TsetlinMachine* tm) {
 	if(!LOG_TASTATES)
 		return;
-		
 	fprintf(log->fp, "%d\t", step);
-	int counts[ABS_STATES];
-	for(int s=0; s<ABS_STATES; s++)
+	int counts[TOTAL_STATES];
+	for(int s=0; s<TOTAL_STATES; s++)
 		counts[s] = 0;
-
 	for(int j=0; j<CLAUSES; j++)		
 		for(int k=0; k<LITERALS; k++)
-			counts[ABS_STATE(tm->clauses[j].ta[k])]++;
-
-	for(int s=0; s<ABS_STATES; s++)
+			counts[STATE_INDEX(tm->clauses[j].ta[k])]++;
+	for(int s=0; s<TOTAL_STATES; s++)
 		fprintf(log->fp, "%d\t", counts[s]);
 	fprintf(log->fp, "\n");
 	fflush(log->fp);
@@ -65,6 +56,8 @@ void finishLogTAStates(LogTAStates* log) {
 	fclose(log->fp);
 }
 
+// ------------------- Status -------------------
+
 struct LogStatus {
 	int cls;
 	FILE* fp;
@@ -73,16 +66,14 @@ struct LogStatus {
 void startLogStatus(int cls, LogStatus* log) {
 	if(!LOG_STATUS)
 		return;
-		
 	log->cls = cls;
 	char s[1024];
-	sprintf(s, LOG_STATUS_PATH_FMT, cls);
+	sprintf(s, LOG_STATUS_PATH, cls);
 	log->fp = fopen(s, LOG_APPEND ? "at" : "wt");
 	if (log->fp == NULL) {
 		printf("Error writing %s\n", s);
 		exit(EXIT_FAILURE);
 	}
-	
 	if(!LOG_APPEND) {
 		fprintf(log->fp, "t\t");
 		fprintf(log->fp, "inc\t");
@@ -100,23 +91,20 @@ void startLogStatus(int cls, LogStatus* log) {
 void logStatus(LogStatus* log, int step, int stepSize, TsetlinMachine* tm) {
 	if(!LOG_STATUS)
 		return;
-		
 	fprintf(log->fp, "%d\t", step);
-	
 	fprintf(log->fp, "%d\t", countIncluded(tm));
-	fprintf(log->fp, "%.3f\t", tm->flips/(double)stepSize);
-	tm->flips = 0;
-	fprintf(log->fp, "%d\t", tm->countType1+1);
-	tm->countType1 = 0;
-	fprintf(log->fp, "%d\t", tm->countType2+1);
-	tm->countType2 = 0;
-	fprintf(log->fp, "%.3f\t", tm->absVoteSum/(double)stepSize);
-	tm->absVoteSum = 0;
-	fprintf(log->fp, "%.3f\t", tm->voteSum1/(double)stepSize);
-	tm->voteSum1 = 0;
-	fprintf(log->fp, "%.3f\t", tm->voteSum0/(double)stepSize);
-	tm->voteSum0 = 0;
-	
+	fprintf(log->fp, "%.3lf\t", tm->flips/(double)stepSize);
+		tm->flips = 0;
+	fprintf(log->fp, "%d\t", tm->countType1);
+		tm->countType1 = 1;
+	fprintf(log->fp, "%d\t", tm->countType2);
+		tm->countType2 = 1;
+	fprintf(log->fp, "%.3lf\t", tm->absVoteSum/(double)stepSize);
+		tm->absVoteSum = 0;
+	fprintf(log->fp, "%.3lf\t", tm->voteSum1/(double)stepSize);
+		tm->voteSum1 = 0;
+	fprintf(log->fp, "%.3lf\t", tm->voteSum0/(double)stepSize);
+		tm->voteSum0 = 0;
 	fprintf(log->fp, "\n");
 	fflush(log->fp);
 }
@@ -127,6 +115,8 @@ void finishLogStatus(LogStatus* log) {
 	fclose(log->fp);
 }
 
+// ------------------- Acc -------------------
+
 struct LogAcc {
 	FILE* fp;
 	float accTrain[CLASSES];
@@ -136,13 +126,11 @@ struct LogAcc {
 void startLogAcc(LogAcc* log) {
 	if(!LOG_ACCEVAL)
 		return;
-		
-	log->fp = fopen(LOG_ACCEVAL_PATH, LOG_APPEND ? "at" : "wt");
+	log->fp = fopen(LOG_ACC_PATH, LOG_APPEND ? "at" : "wt");
 	if (log->fp == NULL) {
-		printf("Error writing %s\n", LOG_ACCEVAL_PATH);
+		printf("Error writing %s\n", LOG_ACC_PATH);
 		exit(EXIT_FAILURE);
 	}
-	
 	if(!LOG_APPEND) {
 		fprintf(log->fp, "t\t");
 		for(int i=0; i<CLASSES; i++)
@@ -152,24 +140,20 @@ void startLogAcc(LogAcc* log) {
 		fprintf(log->fp, "\n");
 		fflush(log->fp);
 	}
-	
-	for(int i=0; i<CLASSES; i++) {
+	for(int i=0; i<CLASSES; i++)
 		log->accTrain[i] = 0;
+	for(int i=0; i<CLASSES; i++)
 		log->accTest[i] = 0;
-	}
 }
 
 void logAcc(LogAcc* log, int step) {
 	if(!LOG_ACCEVAL)
 		return;
-		
 	fprintf(log->fp, "%d\t", step);
-	
 	for(int i=0; i<CLASSES; i++)
 		fprintf(log->fp, "%.3f\t", log->accTrain[i]);
 	for(int i=0; i<CLASSES; i++)
 		fprintf(log->fp, "%.3f\t", log->accTest[i]);
-	
 	fprintf(log->fp, "\n");
 	fflush(log->fp);
 }
