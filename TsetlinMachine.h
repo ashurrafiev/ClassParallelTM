@@ -15,6 +15,10 @@ struct Clause {
 	int ta[LITERALS];
 	// clause output (cached value)
 	int output;
+	
+	#if LIT_LIMIT
+		int literalCnt;
+	#endif
 };
 
 struct TsetlinMachine { 
@@ -47,7 +51,10 @@ struct TsetlinMachine {
 /**
  * Determine include (1) or exclude (0) decision based on a TA state
  */
-#define INCLUDE_LITERAL(state) ((state) > 0)
+#define BORDERLINE_INCLUDE 1
+#define BORDERLINE_EXCLUDE (BORDERLINE_INCLUDE-0)
+#define INCLUDE_LITERAL(state) ((state) >= BORDERLINE_INCLUDE)
+
 
 int calculateOutput(Clause* clause, int input[], int eval) {
 	clause->output = 1;
@@ -140,6 +147,109 @@ int calculateVoting(TsetlinMachine* tm) {
 	return sum;
 }
 
+#if LIT_LIMIT
+
+// ------------------- Literal limiting -------------------
+
+void typeIFeedbackLiteral(int k, Clause* clause, int input[]) {
+	if(clause->output && LITERAL_VALUE(input, k)) { // clause is 1 and literal is 1
+		if(WITH_PROBABILITY(1.0-1.0/L_RATE)) {
+			updateTA(&clause->ta[k], PROMOTE);
+			if(clause->ta[k]==BORDERLINE_INCLUDE)
+				clause->literalCnt++;
+		}
+	}
+	else { // clause is 0 or literal is 0
+		if(WITH_PROBABILITY(1.0/L_RATE)) {
+			updateTA(&clause->ta[k], DEMOTE);
+			if(clause->ta[k]==BORDERLINE_INCLUDE) {
+				 if(LITERAL_VALUE(input, k))
+                    clause->literalCnt--;
+                else
+                    clause->literalCnt++;
+			}
+		}
+	}
+}
+
+int typeIFeedback(Clause* clause, int input[]) {
+	int count = 0;
+	int koffs = rand() % LITERALS;
+	for(int ki=0; ki<LITERALS; ki++) {
+		int k = (ki+koffs) % LITERALS;
+		
+		if(clause->literalCnt > LIT_THRESHOLD)
+			clause->literalCnt = LIT_THRESHOLD;
+			
+		double feedbackProbability = (LIT_THRESHOLD - clause->literalCnt) / (double)LIT_THRESHOLD;
+		if(WITH_PROBABILITY(feedbackProbability)) {
+			#if ENABLE_COUNTERS
+				count++;
+			#endif
+			typeIFeedbackLiteral(k, clause, input);
+		}
+	}
+	return count;
+}
+
+bool typeIIFeedbackLiteral(int k, Clause* clause, int literalValue) {
+	if(!literalValue && !INCLUDE_LITERAL(clause->ta[k])) { // if literal is 0 and excluded
+		updateTA(&clause->ta[k], PROMOTE);
+		if(INCLUDE_LITERAL(clause->ta[k])) {
+			clause->literalCnt--;
+			return true;
+		}
+	}
+	return false;
+}
+
+int typeIIFeedback(Clause* clause, int input[]) {
+	// only if clause is 1
+	if(clause->output) {
+		int count = 0;
+		int koffs = rand() % LITERALS;
+		for(int ki=0; ki<LITERALS; ki++) {
+			int k = (ki+koffs) % LITERALS;
+			
+			#if ENABLE_COUNTERS
+				count++;
+			#endif
+			if(typeIIFeedbackLiteral(k, clause, LITERAL_VALUE(input, k))) {
+				break;
+			}
+		}
+		return count;
+	}
+	else {
+		return 0;
+	}
+}
+
+void prepareUpdateClauses(TsetlinMachine* tm, int input[]) {
+	for(int j=0; j<CLAUSES; j++) {
+		tm->clauses[j].literalCnt = 0;
+		for(int k=0; k<LITERALS; k++) {
+			if(INCLUDE_LITERAL(tm->clauses[j].ta[k])) {
+                if(LITERAL_VALUE(input, k))
+                    tm->clauses[j].literalCnt++;
+                else
+                    tm->clauses[j].literalCnt--;
+            }
+		}
+	}
+}
+
+void updateClause(int j, TsetlinMachine* tm, int input[], int y, int classSum) {
+	if(y)
+		tm->countType1 += typeIFeedback(&tm->clauses[j], input);
+	else
+		tm->countType2 += typeIIFeedback(&tm->clauses[j], input);
+}
+
+#else
+
+// ------------------- No literal limiting (class-sums) -------------------
+
 void typeIFeedbackLiteral(int k, Clause* clause, int literalValue) {
 	if(clause->output && literalValue) { // clause is 1 and literal is 1
 		if(WITH_PROBABILITY(1.0-1.0/L_RATE))
@@ -171,6 +281,29 @@ void typeIIFeedback(Clause* clause, int input[]) {
 	}
 }
 
+void updateClause(int j, TsetlinMachine* tm, int input[], int y, int classSum) {
+	// calculate feedback probability
+	double feedbackProbability;
+	if(y) {
+		feedbackProbability = (L_THRESHOLD - (double)classSum) / (2.0 * L_THRESHOLD);
+		if(WITH_PROBABILITY(feedbackProbability)) {
+			COUNT(tm->countType1);
+			typeIFeedback(&tm->clauses[j], input);
+		}
+	}
+	else {
+		feedbackProbability = (L_THRESHOLD + (double)classSum) / (2.0 * L_THRESHOLD);
+		if(WITH_PROBABILITY(feedbackProbability)) {
+			COUNT(tm->countType2);
+			typeIIFeedback(&tm->clauses[j], input);
+		}
+	}
+}
+
+#endif
+
+// ------------------- Core update function -------------------
+
 void update(TsetlinMachine* tm, int input[], int output) {
 	#if ENABLE_COUNTERS
 	for(int j=0; j<CLAUSES; j++)
@@ -180,14 +313,19 @@ void update(TsetlinMachine* tm, int input[], int output) {
 	#endif
 	
 	calculateClauseOutputs(tm, input, 0);
-	int classSum = calculateVoting(tm);
-
-	#if ENABLE_COUNTERS
-		tm->absVoteSum += abs(classSum);
-		if(output)
-			tm->voteSum1 += classSum;
-		else
-			tm->voteSum0 += classSum;
+	
+	#if LIT_LIMIT
+		int classSum = 0;
+		prepareUpdateClauses(tm, input);
+	#else
+		int classSum = calculateVoting(tm);
+		#if ENABLE_COUNTERS
+			tm->absVoteSum += abs(classSum);
+			if(output)
+				tm->voteSum1 += classSum;
+			else
+				tm->voteSum0 += classSum;
+		#endif
 	#endif
 	
 	for(int j=0; j<CLAUSES; j++) {
@@ -197,27 +335,7 @@ void update(TsetlinMachine* tm, int input[], int output) {
 			y = output;
 		else
 			y = !output;
-
-		// calculate feedback probability
-		double feedbackProbability;
-		if(y) {
-			feedbackProbability = (L_THRESHOLD - (double)classSum) / (2.0 * L_THRESHOLD);
-			if(WITH_PROBABILITY(feedbackProbability)) {
-				#if ENABLE_COUNTERS
-					tm->countType1++;
-				#endif
-				typeIFeedback(&tm->clauses[j], input);
-			}
-		}
-		else {
-			feedbackProbability = (L_THRESHOLD + (double)classSum) / (2.0 * L_THRESHOLD);
-			if(WITH_PROBABILITY(feedbackProbability)) {
-				#if ENABLE_COUNTERS
-					tm->countType2++;
-				#endif
-				typeIIFeedback(&tm->clauses[j], input);
-			}
-		}
+		updateClause(j, tm, input, y, classSum);
 	}
 	
 	#if ENABLE_COUNTERS

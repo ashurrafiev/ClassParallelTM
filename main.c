@@ -34,7 +34,11 @@ void setParams(int argc, char**argv) {
 	addIntParam(&params, "-step-size", &TRAIN_STEP_SIZE, NULL);
 	addIntParam(&params, "-steps", &TRAIN_STEPS, NULL);
 	addDoubleParam(&params, "-s", &L_RATE, "learning rate s");
+	#if LIT_LIMIT
+	addIntParam(&params, "-t", &LIT_THRESHOLD, "literal threshold Tlit");
+	#else
 	addDoubleParam(&params, "-t", &L_NORM_THRESHOLD, "threshold T (normalised)");
+	#endif
 	addIntParam(&params, "-rand-seed", &RAND_SEED, NULL);
 	addIntParam(&params, "-acc-eval-train", &ACC_EVAL_TRAIN, NULL);
 	addIntParam(&params, "-acc-eval-test", &ACC_EVAL_TEST, NULL);
@@ -52,8 +56,12 @@ void setParams(int argc, char**argv) {
 
 	printf("CLAUSES = %d\n", CLAUSES);
 	printf("L_RATE = %f\n", L_RATE);
-	printf("L_NORM_THRESHOLD = %f\n", L_NORM_THRESHOLD);
-	printf("L_THRESHOLD = %f\n", L_THRESHOLD);
+	#if LIT_LIMIT
+		printf("LITERAL_THRESHOLD = %d\n", LIT_THRESHOLD);
+	#else
+		printf("L_NORM_THRESHOLD = %f\n", L_NORM_THRESHOLD);
+		printf("L_THRESHOLD = %f\n", L_THRESHOLD);
+	#endif
 	if(RAND_SEED) {
 		printf("Random seed: %u (fixed)\n", RAND_SEED);
 		srand(RAND_SEED);
