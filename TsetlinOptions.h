@@ -13,7 +13,7 @@
 double L_RATE = 5.0;
 
 // learning threshold with/without literal limiting
-#define LIT_LIMIT 1
+#define LIT_LIMIT 0
 #if LIT_LIMIT
 int LIT_THRESHOLD = 50;
 #else

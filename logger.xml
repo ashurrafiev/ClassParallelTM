@@ -23,6 +23,11 @@
 	<event id="avote" counter="absVoteSum" avg="stepSize" reset="0" />
 	<event id="vote1" counter="voteSum1" avg="stepSize" reset="0" />
 	<event id="vote0" counter="voteSum0" avg="stepSize" reset="0" />
+	<event id="v1min" counter="minVote1" />
+	<event id="v1max" counter="maxVote1" />
+	<event id="v0min" counter="minVote0" />
+	<event id="v0max" counter="maxVote0" />
+	<var id="ccorr" type="float"> (float) calcClauseSimilarity(tm) </var>
 </status>
 
 <status name="Acc" scope="global"

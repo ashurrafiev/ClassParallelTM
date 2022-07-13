@@ -83,6 +83,11 @@ void startLogStatus(int cls, LogStatus* log) {
 		fprintf(log->fp, "avote\t");
 		fprintf(log->fp, "vote1\t");
 		fprintf(log->fp, "vote0\t");
+		fprintf(log->fp, "v1min\t");
+		fprintf(log->fp, "v1max\t");
+		fprintf(log->fp, "v0min\t");
+		fprintf(log->fp, "v0max\t");
+		fprintf(log->fp, "ccorr\t");
 		fprintf(log->fp, "\n");
 		fflush(log->fp);
 	}
@@ -105,6 +110,15 @@ void logStatus(LogStatus* log, int step, int stepSize, TsetlinMachine* tm) {
 		tm->voteSum1 = 0;
 	fprintf(log->fp, "%.3lf\t", tm->voteSum0/(double)stepSize);
 		tm->voteSum0 = 0;
+	fprintf(log->fp, "%d\t", tm->minVote1);
+		tm->minVote1 = 0;
+	fprintf(log->fp, "%d\t", tm->maxVote1);
+		tm->maxVote1 = 0;
+	fprintf(log->fp, "%d\t", tm->minVote0);
+		tm->minVote0 = 0;
+	fprintf(log->fp, "%d\t", tm->maxVote0);
+		tm->maxVote0 = 0;
+	fprintf(log->fp, "%.3f\t", (float) calcClauseSimilarity(tm));
 	fprintf(log->fp, "\n");
 	fflush(log->fp);
 }

@@ -25,7 +25,9 @@ struct TsetlinMachine {
 	Clause clauses[CLAUSES];
 	
 	TM_COUNTERS;
-	bool prevInc[CLAUSES][LITERALS];
+	#if ENABLE_COUNTERS
+		bool prevInc[CLAUSES][LITERALS];
+	#endif
 };
 
 /**
@@ -314,18 +316,29 @@ void update(TsetlinMachine* tm, int input[], int output) {
 	
 	calculateClauseOutputs(tm, input, 0);
 	
+	int classSum = 0;
 	#if LIT_LIMIT
-		int classSum = 0;
 		prepareUpdateClauses(tm, input);
-	#else
-		int classSum = calculateVoting(tm);
-		#if ENABLE_COUNTERS
-			tm->absVoteSum += abs(classSum);
-			if(output)
-				tm->voteSum1 += classSum;
-			else
-				tm->voteSum0 += classSum;
-		#endif
+	#endif
+	#if !LIT_LIMIT || ENABLE_COUNTERS
+		classSum = calculateVoting(tm);
+	#endif
+	#if ENABLE_COUNTERS
+		tm->absVoteSum += abs(classSum);
+		if(output) {
+			tm->voteSum1 += classSum;
+			if(tm->minVote1==0 || classSum<tm->minVote1)
+				tm->minVote1 = classSum;
+			if(tm->maxVote1==0 || classSum>tm->maxVote1)
+				tm->maxVote1 = classSum;
+		}
+		else {
+			tm->voteSum0 += classSum;
+			if(tm->minVote0==0 || classSum<tm->minVote0)
+				tm->minVote0 = classSum;
+			if(tm->maxVote0==0 || classSum>tm->maxVote0)
+				tm->maxVote0 = classSum;
+		}
 	#endif
 	
 	for(int j=0; j<CLAUSES; j++) {
@@ -360,6 +373,38 @@ int countIncluded(TsetlinMachine* tm) {
 				count++;
 		}
 	return count;
+}
+
+int calcInc(TsetlinMachine* tm, int j, int k) {
+	if(INCLUDE_LITERAL(tm->clauses[j].ta[k]))
+		return POLARITY(k) ?  -1 : 1;
+	else
+		return 0;
+}
+
+float calcClauseSimilarity(TsetlinMachine* tm) {
+	float sum = 0.0;
+	int totalCount = 0;
+	for(int j1=0; j1<CLAUSES; j1++)
+		for(int j2=0; j2<CLAUSES; j2++) {
+			if(j1==j2 || VOTE(j1)!=VOTE(j2))
+				continue;
+			int r = 0;
+			int countInc = 0;
+			for(int k=0; k<LITERALS; k++) {
+				int inc1 = calcInc(tm, j1, k);
+				int inc2 = calcInc(tm, j2, k);
+				if(inc1 || inc2) {
+					r += inc1*inc2;
+					countInc++;
+				}
+			}
+			if(countInc>0)
+				sum += (float)r / (float)countInc;
+			totalCount++;
+		}
+	return sum / (float)totalCount;
+	// return sum * 2.0 / (float)CLAUSES / (float)(CLAUSES-2);
 }
 
 #endif
