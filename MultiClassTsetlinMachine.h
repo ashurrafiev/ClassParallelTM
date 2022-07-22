@@ -17,6 +17,7 @@ struct TsetlinMachineRun {
 
 void initializeClass(TsetlinMachineRun* tmr, DataSet* trainData, int id) {
 	tmr->id = id;
+	tmr->tm.threshold = THRESHOLD_SET[id];
 	initialize(&tmr->tm);
 	tmr->epoch = 0;
 	tmr->dataIndex = 0;

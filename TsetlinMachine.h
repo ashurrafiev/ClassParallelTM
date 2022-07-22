@@ -23,6 +23,7 @@ struct Clause {
 
 struct TsetlinMachine { 
 	Clause clauses[CLAUSES];
+	double threshold;
 	
 	TM_COUNTERS;
 	#if ENABLE_COUNTERS
@@ -174,16 +175,16 @@ void typeIFeedbackLiteral(int k, Clause* clause, int input[]) {
 	}
 }
 
-int typeIFeedback(Clause* clause, int input[]) {
+int typeIFeedback(Clause* clause, int input[], int T) {
 	int count = 0;
 	int koffs = rand() % LITERALS;
 	for(int ki=0; ki<LITERALS; ki++) {
 		int k = (ki+koffs) % LITERALS;
 		
-		if(clause->literalCnt > LIT_THRESHOLD)
-			clause->literalCnt = LIT_THRESHOLD;
+		if(clause->literalCnt > T)
+			clause->literalCnt = T;
 			
-		double feedbackProbability = (LIT_THRESHOLD - clause->literalCnt) / (double)LIT_THRESHOLD;
+		double feedbackProbability = (T - clause->literalCnt) / (double)T;
 		if(WITH_PROBABILITY(feedbackProbability)) {
 			#if ENABLE_COUNTERS
 				count++;
@@ -243,7 +244,7 @@ void prepareUpdateClauses(TsetlinMachine* tm, int input[]) {
 
 void updateClause(int j, TsetlinMachine* tm, int input[], int y, int classSum) {
 	if(y)
-		tm->countType1 += typeIFeedback(&tm->clauses[j], input);
+		tm->countType1 += typeIFeedback(&tm->clauses[j], input, (int)tm->threshold);
 	else
 		tm->countType2 += typeIIFeedback(&tm->clauses[j], input);
 }
@@ -287,14 +288,14 @@ void updateClause(int j, TsetlinMachine* tm, int input[], int y, int classSum) {
 	// calculate feedback probability
 	double feedbackProbability;
 	if(y) {
-		feedbackProbability = (L_THRESHOLD - (double)classSum) / (2.0 * L_THRESHOLD);
+		feedbackProbability = (tm->threshold - (double)classSum) / (2.0 * tm->threshold);
 		if(WITH_PROBABILITY(feedbackProbability)) {
 			COUNT(tm->countType1);
 			typeIFeedback(&tm->clauses[j], input);
 		}
 	}
 	else {
-		feedbackProbability = (L_THRESHOLD + (double)classSum) / (2.0 * L_THRESHOLD);
+		feedbackProbability = (tm->threshold + (double)classSum) / (2.0 * tm->threshold);
 		if(WITH_PROBABILITY(feedbackProbability)) {
 			COUNT(tm->countType2);
 			typeIIFeedback(&tm->clauses[j], input);

@@ -29,16 +29,19 @@ double elapsedCpu(unsigned long start) {
 }
 
 void setParams(int argc, char**argv) {
+	double T = DEFAULT_THRESHOLD_N;
+	char Ts[128] = "";
+	const char sep[2] = ",";
+	char *token;
+	char *end;
+   
 	ParseParamDefs params;
 	startParamDefs(&params);
 	addIntParam(&params, "-step-size", &TRAIN_STEP_SIZE, NULL);
 	addIntParam(&params, "-steps", &TRAIN_STEPS, NULL);
 	addDoubleParam(&params, "-s", &L_RATE, "learning rate s");
-	#if LIT_LIMIT
-	addIntParam(&params, "-t", &LIT_THRESHOLD, "literal threshold Tlit");
-	#else
-	addDoubleParam(&params, "-t", &L_NORM_THRESHOLD, "threshold T (normalised)");
-	#endif
+	addDoubleParam(&params, "-t", &T, "threshold T (normalised)");
+	addStrParam(&params, "-ts", Ts, 128, "comma-separated threshold list (normalised)");
 	addIntParam(&params, "-rand-seed", &RAND_SEED, NULL);
 	addIntParam(&params, "-acc-eval-train", &ACC_EVAL_TRAIN, NULL);
 	addIntParam(&params, "-acc-eval-test", &ACC_EVAL_TEST, NULL);
@@ -54,14 +57,36 @@ void setParams(int argc, char**argv) {
 		exit(EXIT_FAILURE);
 	}
 
+	token = strtok(Ts, sep);
+	for(int i=0; i<CLASSES; i++) {
+		if(token!=NULL) {
+			THRESHOLD_SET[i] = DENORM_THRESHOLD(strtod(token, &end));
+			if(end==token) {
+				printf("Expected comma-separated float values for option -ts\n\n");
+				printUsage(&params);
+				exit(EXIT_FAILURE);
+			}
+			token = strtok(NULL, sep);
+		}
+		else {
+			THRESHOLD_SET[i] = DENORM_THRESHOLD(T);
+		}
+	}
+
 	printf("CLAUSES = %d\n", CLAUSES);
 	printf("L_RATE = %f\n", L_RATE);
+	
 	#if LIT_LIMIT
-		printf("LITERAL_THRESHOLD = %d\n", LIT_THRESHOLD);
+		printf("!LITERAL! THRESHOLDS = [");
 	#else
-		printf("L_NORM_THRESHOLD = %f\n", L_NORM_THRESHOLD);
-		printf("L_THRESHOLD = %f\n", L_THRESHOLD);
+		printf("THRESHOLDS = [");
 	#endif
+	for(int i=0; i<CLASSES; i++) {
+		if(i>0) printf(", ");
+		printf("%d:%.1f", i, THRESHOLD_SET[i]);
+	}
+	printf("]\n");
+	
 	if(RAND_SEED) {
 		printf("Random seed: %u (fixed)\n", RAND_SEED);
 		srand(RAND_SEED);

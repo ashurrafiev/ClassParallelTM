@@ -13,13 +13,15 @@
 double L_RATE = 5.0;
 
 // learning threshold with/without literal limiting
-#define LIT_LIMIT 0
+#define LIT_LIMIT 1
 #if LIT_LIMIT
-int LIT_THRESHOLD = 50;
+#define DEFAULT_THRESHOLD_N 0.064
+#define DENORM_THRESHOLD(t) (int)(t*FEATURES)
 #else
-double L_NORM_THRESHOLD = 0.35;
-#define L_THRESHOLD (L_NORM_THRESHOLD*CLAUSES/2.0)
+#define DEFAULT_THRESHOLD_N 0.35
+#define DENORM_THRESHOLD(t) (t*CLAUSES/2.0)
 #endif
+double THRESHOLD_SET[CLASSES];
 
 #define INPUT_DATA_PATH "../../poets/tsetlin/pkbits"
 
