@@ -98,7 +98,8 @@ void trainClass(TsetlinMachineRun* tmr) {
 	int numData = data->num;
 	int index = tmr->dataIndex;
 	
-	for(int l=0; l<TRAIN_STEP_SIZE; l++) {
+	int stepSize = (TRAIN_MASK & (1 << tmr->id)) ? TRAIN_STEP_SIZE : 0;
+	for(int l=0; l<stepSize; l++) {
 		update(&tmr->tm, data->inputs[index], data->outputs[index]);
 		index++;
 		if(index>=numData) {

@@ -30,6 +30,7 @@ double THRESHOLD_SET[CLASSES];
 
 int TRAIN_STEP_SIZE = 100;
 int TRAIN_STEPS = 1;
+int TRAIN_MASK = 0x0fffffff;
 
 int RAND_SEED = 0;
 int ACC_EVAL_TRAIN = 0;

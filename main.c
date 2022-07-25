@@ -34,6 +34,7 @@ void setParams(int argc, char**argv) {
 	const char sep[2] = ",";
 	char *token;
 	char *end;
+	char tmask[36] = "11111111111111111111111111111110";
    
 	ParseParamDefs params;
 	startParamDefs(&params);
@@ -52,6 +53,7 @@ void setParams(int argc, char**argv) {
 	addStrParam(&params, "-load-state", LOAD_STATE_FMT, 1024, "path format, %d is replaced by a class index");
 	addFlagParam(&params, "-remap-state", &REMAP_STATE, NULL);
 	addStrParam(&params, "-save-state", SAVE_STATE_FMT, 1024, "path format, %d is replaced by a class index");
+	addStrParam(&params, "-train-mask", tmask, 36, "binary mask to enable training per class");
 	addIntParam(&params, "-par", &PARALLEL_TRAIN, NULL);
 	if(!parseParams(&params, argc, argv)) {
 		exit(EXIT_FAILURE);
@@ -72,7 +74,7 @@ void setParams(int argc, char**argv) {
 			THRESHOLD_SET[i] = DENORM_THRESHOLD(T);
 		}
 	}
-
+	
 	printf("CLAUSES = %d\n", CLAUSES);
 	printf("L_RATE = %f\n", L_RATE);
 	
@@ -86,6 +88,17 @@ void setParams(int argc, char**argv) {
 		printf("%d:%.1f", i, THRESHOLD_SET[i]);
 	}
 	printf("]\n");
+
+	int len = strlen(tmask);
+	TRAIN_MASK = 0;
+	for(int i=0; i<CLASSES; i++) {
+		int d = 1;
+		if(i<len && tmask[i]=='0') {
+			d = 0;
+			printf("- skip training class %d\n", i);
+		}
+		TRAIN_MASK |= d<<i;
+	}
 	
 	if(RAND_SEED) {
 		printf("Random seed: %u (fixed)\n", RAND_SEED);
