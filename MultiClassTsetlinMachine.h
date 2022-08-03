@@ -196,4 +196,11 @@ void evaluateClassesComb(TsetlinMachineRun* tmr, DataSet* data, float acc[], int
 	}
 }
 
+float calcAverage(float x[], int n) {
+	float sum = 0.0;
+	for(int i=0; i<n; i++)
+		sum += x[i];
+	return sum/n;
+}
+
 #endif

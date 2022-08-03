@@ -133,7 +133,6 @@ void finishLogStatus(LogStatus* log) {
 
 struct LogAcc {
 	FILE* fp;
-	float accTrain[CLASSES];
 	float accTest[CLASSES];
 };
 
@@ -147,15 +146,16 @@ void startLogAcc(LogAcc* log) {
 	}
 	if(!LOG_APPEND) {
 		fprintf(log->fp, "t\t");
+		fprintf(log->fp, "seed\t");
+		fprintf(log->fp, "s\t");
 		for(int i=0; i<CLASSES; i++)
-			fprintf(log->fp, "acctrain%d\t", i);
+			fprintf(log->fp, "t%d\t", i);
 		for(int i=0; i<CLASSES; i++)
 			fprintf(log->fp, "acctest%d\t", i);
+		fprintf(log->fp, "avgacctest\t");
 		fprintf(log->fp, "\n");
 		fflush(log->fp);
 	}
-	for(int i=0; i<CLASSES; i++)
-		log->accTrain[i] = 0;
 	for(int i=0; i<CLASSES; i++)
 		log->accTest[i] = 0;
 }
@@ -164,10 +164,13 @@ void logAcc(LogAcc* log, int step) {
 	if(!LOG_ACCEVAL)
 		return;
 	fprintf(log->fp, "%d\t", step);
+	fprintf(log->fp, "%d\t", RAND_SEED);
+	fprintf(log->fp, "%.3f\t", L_RATE);
 	for(int i=0; i<CLASSES; i++)
-		fprintf(log->fp, "%.3f\t", log->accTrain[i]);
+		fprintf(log->fp, "%.3f\t", THRESHOLD_SET[i]);
 	for(int i=0; i<CLASSES; i++)
 		fprintf(log->fp, "%.3f\t", log->accTest[i]);
+	fprintf(log->fp, "%.3f\t", calcAverage(log->accTest, CLASSES));
 	fprintf(log->fp, "\n");
 	fflush(log->fp);
 }

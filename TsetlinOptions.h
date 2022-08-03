@@ -13,13 +13,14 @@
 double L_RATE = 5.0;
 
 // learning threshold with/without literal limiting
+int T_NORM = 1;
 #define LIT_LIMIT 1
 #if LIT_LIMIT
 #define DEFAULT_THRESHOLD_N 0.064
-#define DENORM_THRESHOLD(t) (int)(t*FEATURES)
+#define DENORM_THRESHOLD(t) (T_NORM ? (int)((t)*FEATURES) : (t))
 #else
 #define DEFAULT_THRESHOLD_N 0.35
-#define DENORM_THRESHOLD(t) (t*CLAUSES/2.0)
+#define DENORM_THRESHOLD(t) (T_NORM ? ((t)*CLAUSES/2.0) : (t))
 #endif
 double THRESHOLD_SET[CLASSES];
 

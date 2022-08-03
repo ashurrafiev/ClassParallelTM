@@ -41,8 +41,9 @@ void setParams(int argc, char**argv) {
 	addIntParam(&params, "-step-size", &TRAIN_STEP_SIZE, NULL);
 	addIntParam(&params, "-steps", &TRAIN_STEPS, NULL);
 	addDoubleParam(&params, "-s", &L_RATE, "learning rate s");
-	addDoubleParam(&params, "-t", &T, "threshold T (normalised)");
-	addStrParam(&params, "-ts", Ts, 128, "comma-separated threshold list (normalised)");
+	addDoubleParam(&params, "-t", &T, "threshold T");
+	addStrParam(&params, "-ts", Ts, 128, "comma-separated threshold list");
+	addIntParam(&params, "-tnorm", &T_NORM, "T values are normalized");
 	addIntParam(&params, "-rand-seed", &RAND_SEED, NULL);
 	addIntParam(&params, "-acc-eval-train", &ACC_EVAL_TRAIN, NULL);
 	addIntParam(&params, "-acc-eval-test", &ACC_EVAL_TEST, NULL);
@@ -99,15 +100,13 @@ void setParams(int argc, char**argv) {
 		}
 		TRAIN_MASK |= d<<i;
 	}
-	
+
 	if(RAND_SEED) {
-		printf("Random seed: %u (fixed)\n", RAND_SEED);
-		srand(RAND_SEED);
+		printf("Random seed: %d (fixed)\n", RAND_SEED);
 	}
 	else {
-		unsigned long seed = wallclock();
-		printf("Random seed: %lu (time)\n", seed);
-		srand(seed);
+		RAND_SEED = (int)wallclock();
+		printf("Random seed: %d (wallclock)\n", RAND_SEED);
 	}
 }
 
@@ -121,7 +120,7 @@ void readData(void) {
 }
 
 void evaluateAcc(TsetlinMachineRun* tmr, LogAcc* acc, int step, bool print, int (*pipes)[CLASSES][2]) {
-	if((ACC_EVAL_TRAIN>0 && step==0)
+	/*if((ACC_EVAL_TRAIN>0 && step==0)
 			|| (ACC_EVAL_TRAIN>0 && step%ACC_EVAL_TRAIN==0)
 			|| (ACC_EVAL_TRAIN==-1 && step==-1)) {
 		unsigned long startEval = cputime();
@@ -136,7 +135,7 @@ void evaluateAcc(TsetlinMachineRun* tmr, LogAcc* acc, int step, bool print, int 
 			}
 			printf("  AVG %f\n", sum/(float)CLASSES);
 		}
-	}
+	}*/
 	if((ACC_EVAL_TEST>0 && step==0)
 			|| (ACC_EVAL_TEST>0 && step%ACC_EVAL_TEST==0)
 			|| (ACC_EVAL_TEST==-1 && step==-1)) {
@@ -183,6 +182,8 @@ int main(int argc, char**argv) {
 				}
 				
 				// child loop
+				srand(RAND_SEED+i);
+				
 				LogTAStates logStates;
 				LogStatus log;
 				startLogTAStates(i, &logStates);
@@ -231,6 +232,8 @@ int main(int argc, char**argv) {
 			wait(NULL);
 	}
 	else {
+		srand(RAND_SEED);
+		
 		LogTAStates logStates[CLASSES];
 		LogStatus log[CLASSES];
 		for(int i=0; i<CLASSES; i++) {

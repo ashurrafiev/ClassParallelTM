@@ -32,8 +32,12 @@
 
 <status name="Acc" scope="global"
 		path="acc.csv" enable="LOG_ACCEVAL">
-	<var id="acctrain" cache="accTrain" group="CLASSES" />
+	<var id="seed" type="int"> RAND_SEED </var>
+	<var id="s"> L_RATE </var>
+	<var id="t" group="CLASSES"> THRESHOLD_SET[i] </var>
+	<!-- <var id="acctrain" cache="accTrain" group="CLASSES" /> -->
 	<var id="acctest" cache="accTest" group="CLASSES" />
+	<var id="avgacctest"> calcAverage(log->accTest, CLASSES) </var>
 </status>
 
 </logger>
