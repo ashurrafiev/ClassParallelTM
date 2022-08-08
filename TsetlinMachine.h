@@ -55,7 +55,7 @@ struct TsetlinMachine {
  * Determine include (1) or exclude (0) decision based on a TA state
  */
 #define BORDERLINE_INCLUDE 1
-#define BORDERLINE_EXCLUDE (BORDERLINE_INCLUDE-0)
+#define BORDERLINE_EXCLUDE (BORDERLINE_INCLUDE-1)
 #define INCLUDE_LITERAL(state) ((state) >= BORDERLINE_INCLUDE)
 
 
@@ -165,11 +165,11 @@ void typeIFeedbackLiteral(int k, Clause* clause, int input[]) {
 	else { // clause is 0 or literal is 0
 		if(WITH_PROBABILITY(1.0/L_RATE)) {
 			updateTA(&clause->ta[k], DEMOTE);
-			if(clause->ta[k]==BORDERLINE_INCLUDE) {
+			if(clause->ta[k]==BORDERLINE_EXCLUDE) {
 				 if(LITERAL_VALUE(input, k))
-                    clause->literalCnt--;
-                else
-                    clause->literalCnt++;
+					clause->literalCnt--;
+				else
+					clause->literalCnt++;
 			}
 		}
 	}
