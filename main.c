@@ -41,9 +41,10 @@ void setParams(int argc, char**argv) {
 	addIntParam(&params, "-step-size", &TRAIN_STEP_SIZE, NULL);
 	addIntParam(&params, "-steps", &TRAIN_STEPS, NULL);
 	addDoubleParam(&params, "-s", &L_RATE, "learning rate s");
+	addIntParam(&params, "-boost-pos", &BOOST_POS, "boost positive feedback (0 or 1)");
 	addDoubleParam(&params, "-t", &T, "threshold T");
 	addStrParam(&params, "-ts", Ts, 128, "comma-separated threshold list");
-	addIntParam(&params, "-tnorm", &T_NORM, "T values are normalized");
+	addIntParam(&params, "-tnorm", &T_NORM, "T values are normalized (0 or 1)");
 	addIntParam(&params, "-rand-seed", &RAND_SEED, NULL);
 	addIntParam(&params, "-acc-eval-train", &ACC_EVAL_TRAIN, NULL);
 	addIntParam(&params, "-acc-eval-test", &ACC_EVAL_TEST, NULL);
@@ -55,7 +56,7 @@ void setParams(int argc, char**argv) {
 	addFlagParam(&params, "-remap-state", &REMAP_STATE, NULL);
 	addStrParam(&params, "-save-state", SAVE_STATE_FMT, 1024, "path format, %d is replaced by a class index");
 	addStrParam(&params, "-train-mask", tmask, 36, "binary mask to enable training per class");
-	addIntParam(&params, "-par", &PARALLEL_TRAIN, NULL);
+	addIntParam(&params, "-par", &PARALLEL_TRAIN, "parallel version (0 or 1)");
 	if(!parseParams(&params, argc, argv)) {
 		exit(EXIT_FAILURE);
 	}

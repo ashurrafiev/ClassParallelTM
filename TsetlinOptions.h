@@ -6,15 +6,16 @@
 #define NUM_EXAMPLES_TRAIN 0
 #define NUM_EXAMPLES_TEST 0
 
-#define CLAUSES 100
+#define CLAUSES 200
 #define NUM_STATES 100
 
 // learning rate s
 double L_RATE = 5.0;
+int BOOST_POS = 0;
 
 // learning threshold with/without literal limiting
 int T_NORM = 1;
-#define LIT_LIMIT 1
+#define LIT_LIMIT 0
 #if LIT_LIMIT
 #define DEFAULT_THRESHOLD_N 0.064
 #define DENORM_THRESHOLD(t) (T_NORM ? (int)((t)*FEATURES) : (t))

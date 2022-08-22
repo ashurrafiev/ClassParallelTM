@@ -156,7 +156,7 @@ int calculateVoting(TsetlinMachine* tm) {
 
 void typeIFeedbackLiteral(int k, Clause* clause, int input[]) {
 	if(clause->output && LITERAL_VALUE(input, k)) { // clause is 1 and literal is 1
-		if(WITH_PROBABILITY(1.0-1.0/L_RATE)) {
+		if(BOOST_POS || WITH_PROBABILITY(1.0-1.0/L_RATE)) {
 			updateTA(&clause->ta[k], PROMOTE);
 			if(clause->ta[k]==BORDERLINE_INCLUDE)
 				clause->literalCnt++;
@@ -243,6 +243,9 @@ void prepareUpdateClauses(TsetlinMachine* tm, int input[]) {
 }
 
 void updateClause(int j, TsetlinMachine* tm, int input[], int y, int classSum) {
+	// inverse the decision for negatively-voting clauses
+	if(VOTE(j)<0)
+		y = !y;
 	if(y)
 		tm->countType1 += typeIFeedback(&tm->clauses[j], input, (int)tm->threshold);
 	else
@@ -255,7 +258,7 @@ void updateClause(int j, TsetlinMachine* tm, int input[], int y, int classSum) {
 
 void typeIFeedbackLiteral(int k, Clause* clause, int literalValue) {
 	if(clause->output && literalValue) { // clause is 1 and literal is 1
-		if(WITH_PROBABILITY(1.0-1.0/L_RATE))
+		if(BOOST_POS || WITH_PROBABILITY(1.0-1.0/L_RATE))
 			updateTA(&clause->ta[k], PROMOTE);
 	}
 	else { // clause is 0 or literal is 0
@@ -286,16 +289,19 @@ void typeIIFeedback(Clause* clause, int input[]) {
 
 void updateClause(int j, TsetlinMachine* tm, int input[], int y, int classSum) {
 	// calculate feedback probability
-	double feedbackProbability;
+	double feedbackProbability = (tm->threshold - (double)classSum) / (2.0 * tm->threshold);
+	if(!y)
+		feedbackProbability = 1.0 - feedbackProbability;
+	// inverse the decision for negatively-voting clauses
+	if(VOTE(j)<0)
+		y = !y;
 	if(y) {
-		feedbackProbability = (tm->threshold - (double)classSum) / (2.0 * tm->threshold);
 		if(WITH_PROBABILITY(feedbackProbability)) {
 			COUNT(tm->countType1);
 			typeIFeedback(&tm->clauses[j], input);
 		}
 	}
 	else {
-		feedbackProbability = (tm->threshold + (double)classSum) / (2.0 * tm->threshold);
 		if(WITH_PROBABILITY(feedbackProbability)) {
 			COUNT(tm->countType2);
 			typeIIFeedback(&tm->clauses[j], input);
@@ -343,13 +349,7 @@ void update(TsetlinMachine* tm, int input[], int output) {
 	#endif
 	
 	for(int j=0; j<CLAUSES; j++) {
-		// inverse the decision for negatively-voting clauses
-		int y;
-		if(VOTE(j)>0)
-			y = output;
-		else
-			y = !output;
-		updateClause(j, tm, input, y, classSum);
+		updateClause(j, tm, input, output, classSum);
 	}
 	
 	#if ENABLE_COUNTERS
