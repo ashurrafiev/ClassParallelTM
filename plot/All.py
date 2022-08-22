@@ -1,6 +1,6 @@
 from plot import *
 
-dataPath = '../bak/res0712'
+dataPath = '../bak/res0812/3'
 #dataPath = '../bak/res0712-JM'
 
 page = Page(1)
@@ -9,11 +9,11 @@ page = Page(1)
 
 charts = [
 	#('acctrain%s', 'Accuracy (Train)', (False, 0.5, 1.0, 0.1), 'accuracy', '%.2f'),
-	('acctest%s', 'Accuracy (Test)', (False, 0.5, 1.0, 0.1), 'accuracy', '%.2f'),
+	('acctest%s', 'Accuracy (Test)', (False, 0.5, 1.0, 0.1), 'accuracy', NumberFormatter.percent(0)),
 ]
 
 data = Data.read(File('%s/acc.csv' % dataPath))
-addColAvg(data, 'acctrain%s')
+#addColAvg(data, 'acctrain%s')
 addColAvg(data, 'acctest%s')
 
 plotMC(page, data, charts)
@@ -21,18 +21,18 @@ plotMC(page, data, charts)
 # class status charts
 
 charts = [
-	('inc', 'Number of inclusions', (False, 0, 12000, 1000), 'literals', '%.0f'),
-	('flips', 'Number of decision flips', (False, 0, 60, 10), 'flips', '%.0f'),
-	('ratio', 'Feedback by type', (True, 1/64.0, 64.0, 4), 'T1 / T2 ratio', '%.2f'),
+	('inc', 'Number of inclusions', (False, 0, 80000, 10000), 'literals', '%.0f'),
+	('flips', 'Number of decision flips', (False, 0, 200, 20), 'flips', '%.0f'),
+	#('ratio', 'Feedback by type', (True, 1/64.0, 64.0, 4), 'T1 / T2 ratio', '%.2f'),
 	#('avote', 'Absolute sum votes', (False, 0, 25, 5), 'votes', '%.0f'),
-	('vdiff', 'Sum vote difference', (False, 0, 25, 5), 'votes', '%.0f'),
+	#('vdiff', 'Sum vote difference', (False, 0, 25, 5), 'votes', '%.0f'),
 	#('v1max', 'Max sum vote, y=1', (False, -50, 50, 10), 'vote sum', '%.0f'),
 	#('v1min', 'Min sum vote, y=1', (False, -50, 50, 10), 'vote sum', '%.0f'),
 	#('v0max', 'Max sum vote, y=0', (False, -50, 50, 10), 'vote sum', '%.0f'),
 	#('v0min', 'Min sum vote, y=0', (False, -50, 50, 10), 'vote sum', '%.0f'),
-	('v1range', 'Sum vote range, y=1', (False, 0, 60, 10), 'votes', '%.0f'),
-	('v0range', 'Sum vote range, y=0', (False, 0, 60, 10), 'votes', '%.0f'),
-	('ccorr', 'Mean clause similarity', (False, 0, 0.1, 0.01), 'votes', '%.2f'),
+	#('v1range', 'Sum vote range, y=1', (False, 0, 60, 10), 'votes', '%.0f'),
+	#('v0range', 'Sum vote range, y=0', (False, 0, 60, 10), 'votes', '%.0f'),
+	#('ccorr', 'Mean clause similarity', (False, 0, 0.1, 0.01), 'votes', '%.2f'),
 ]
 
 data = []
