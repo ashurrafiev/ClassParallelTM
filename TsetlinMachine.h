@@ -2,6 +2,7 @@
 #define _TSETLIN_MACHINE_H_
 
 #include <stdlib.h>
+#include <string.h>
 
 #include "TsetlinLoggerDefs.h"
 
@@ -83,22 +84,6 @@ inline void updateTA(int* ta, int action) {
 		(*ta) = nextState;
 }
 
-/*
-void reward(Clause* clause, int k) {
-	if(INCLUDE_LITERAL(clause->ta[k]))
-		updateTA(&clause->ta[k], +1 );
-	else
-		updateTA(&clause->ta[k], -1 );
-}
-
-void penalty(Clause* clause, int k) {
-	if(INCLUDE_LITERAL(clause->ta[k]))
-		updateTA(&clause->ta[k], -1 );
-	else
-		updateTA(&clause->ta[k], +1 );
-}
-*/
-
 void initialize(TsetlinMachine* tm) {
 	for(int j=0; j<CLAUSES; j++) {				
 		// set initial TA states to borderline exclude
@@ -126,7 +111,6 @@ TsetlinMachine* createTsetlinMachine() {
 
 /**
  * Update clauses for the given input vector
- * @param input
  */
 void calculateClauseOutputs(TsetlinMachine* tm, int input[], int eval) {
 	for(int j=0; j<CLAUSES; j++) {
@@ -150,20 +134,39 @@ int calculateVoting(TsetlinMachine* tm) {
 	return sum;
 }
 
+void precalcRand(unsigned char probs[]) {
+	memset(probs, 0, LITERALS*sizeof(unsigned char));
+	// The number of "active" elements should be random with Binomial distr;
+	// however, using just the mean value does not reduce the training accuracy in practice
+	int active = (int)(LITERALS / (double)L_RATE);
+	if(active>LITERALS)
+		active = LITERALS;
+	while(active--) {
+		int koffs = rand();
+		for(int ki=0; ki<LITERALS; ki++) {
+			unsigned char* p = &probs[(ki+koffs) % LITERALS];
+			if(!(*p)) {
+				*p = 1;
+				break;
+			}
+		}
+	}
+}
+
 #if LIT_LIMIT
 
 // ------------------- Literal limiting -------------------
 
-void typeIFeedbackLiteral(int k, Clause* clause, int input[]) {
+void typeIFeedbackLiteral(int k, Clause* clause, int input[], unsigned char prob) {
 	if(clause->output && LITERAL_VALUE(input, k)) { // clause is 1 and literal is 1
-		if(BOOST_POS || WITH_PROBABILITY(1.0-1.0/L_RATE)) {
+		if(BOOST_POS || !prob) {
 			updateTA(&clause->ta[k], PROMOTE);
 			if(clause->ta[k]==BORDERLINE_INCLUDE)
 				clause->literalCnt++;
 		}
 	}
 	else { // clause is 0 or literal is 0
-		if(WITH_PROBABILITY(1.0/L_RATE)) {
+		if(prob) {
 			updateTA(&clause->ta[k], DEMOTE);
 			if(clause->ta[k]==BORDERLINE_EXCLUDE) {
 				 if(LITERAL_VALUE(input, k))
@@ -176,8 +179,11 @@ void typeIFeedbackLiteral(int k, Clause* clause, int input[]) {
 }
 
 int typeIFeedback(Clause* clause, int input[], int T) {
+	unsigned char probs[LITERALS];
+	precalcRand(probs);
+	
 	int count = 0;
-	int koffs = rand() % LITERALS;
+	int koffs = rand();
 	for(int ki=0; ki<LITERALS; ki++) {
 		int k = (ki+koffs) % LITERALS;
 		
@@ -189,7 +195,7 @@ int typeIFeedback(Clause* clause, int input[], int T) {
 			#if ENABLE_COUNTERS
 				count++;
 			#endif
-			typeIFeedbackLiteral(k, clause, input);
+			typeIFeedbackLiteral(k, clause, input, probs[k]);
 		}
 	}
 	return count;
@@ -256,20 +262,22 @@ void updateClause(int j, TsetlinMachine* tm, int input[], int y, int classSum) {
 
 // ------------------- No literal limiting (class-sums) -------------------
 
-void typeIFeedbackLiteral(int k, Clause* clause, int literalValue) {
+void typeIFeedbackLiteral(int k, Clause* clause, int literalValue, unsigned char prob) {
 	if(clause->output && literalValue) { // clause is 1 and literal is 1
-		if(BOOST_POS || WITH_PROBABILITY(1.0-1.0/L_RATE))
+		if(BOOST_POS || !prob)
 			updateTA(&clause->ta[k], PROMOTE);
 	}
 	else { // clause is 0 or literal is 0
-		if(WITH_PROBABILITY(1.0/L_RATE))
+		if(prob)
 			updateTA(&clause->ta[k], DEMOTE);
 	}
 }
 
 void typeIFeedback(Clause* clause, int input[]) {
+	unsigned char probs[LITERALS];
+	precalcRand(probs);
 	for(int k=0; k<LITERALS; k++) {
-		typeIFeedbackLiteral(k, clause, LITERAL_VALUE(input, k));
+		typeIFeedbackLiteral(k, clause, LITERAL_VALUE(input, k), probs[k]);
 	}
 }
 
