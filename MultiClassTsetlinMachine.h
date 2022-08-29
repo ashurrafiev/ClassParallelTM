@@ -40,7 +40,7 @@ TsetlinMachineRun* createMultiClassTsetlinMachine(DataSet* trainData) {
 void remapState(TsetlinMachineRun* tmr) {
 	for(int j=0; j<CLAUSES; j++)
 		for(int k=0; k<LITERALS; k++) {
-			int* ta = &tmr->tm.clauses[j].ta[k];
+			ta_t* ta = &tmr->tm.clauses[j].ta[k];
 			if(INCLUDE_LITERAL(*ta))
 				*ta = 1;
 			else
@@ -64,8 +64,11 @@ int loadState(TsetlinMachineRun* tmr) {
 		else {
 			fscanf(fp, "%d %d %d", &step, &tmr->epoch, &tmr->dataIndex);
 			for(int j=0; j<CLAUSES; j++)
-				for(int k=0; k<LITERALS; k++)
-					fscanf(fp, "%d", &tmr->tm.clauses[j].ta[k]);
+				for(int k=0; k<LITERALS; k++) {
+					int ta;
+					fscanf(fp, "%d", &ta);
+					tmr->tm.clauses[j].ta[k] = (ta_t) ta;
+				}
 		}
 		fclose(fp);
 	}
@@ -86,8 +89,10 @@ void saveState(TsetlinMachineRun* tmr, int step) {
 		}
 		fprintf(fp, "%d\t%d\t%d\n", step, tmr->epoch, tmr->dataIndex);
 		for(int j=0; j<CLAUSES; j++)
-			for(int k=0; k<LITERALS; k++)
-				fprintf(fp, "\t%d", tmr->tm.clauses[j].ta[k]);
+			for(int k=0; k<LITERALS; k++) {
+				int ta = tmr->tm.clauses[j].ta[k];
+				fprintf(fp, "\t%d", ta);
+			}
 		fprintf(fp, "\n");
 		fclose(fp);
 	}

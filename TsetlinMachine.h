@@ -8,13 +8,14 @@
 #include "TsetlinLoggerDefs.h"
 
 #define LITERALS (FEATURES*2)
+#define ta_t int8_t
 
 #define PROMOTE (+1)
 #define DEMOTE (-1)
 
 struct Clause {
 	// TA states for positive (even) and negative (odd) polarity literals
-	int ta[LITERALS];
+	ta_t ta[LITERALS];
 	// clause output (cached value)
 	int output;
 	
@@ -29,7 +30,7 @@ struct TsetlinMachine {
 	
 	TM_COUNTERS;
 	#if ENABLE_COUNTERS
-		bool prevInc[CLAUSES][LITERALS];
+		uint8_t prevInc[CLAUSES][LITERALS];
 	#endif
 };
 
@@ -77,8 +78,8 @@ int calculateOutput(Clause* clause, uint8_t input[], int eval) {
 	return clause->output;
 }
 
-inline void updateTA(int* ta, int action) {
-	int nextState = (*ta)+action;
+inline void updateTA(ta_t* ta, ta_t action) {
+	ta_t nextState = (*ta)+action;
 	
 	// update, if next state is within allowed states
 	if(nextState>-NUM_STATES && nextState<=NUM_STATES)
