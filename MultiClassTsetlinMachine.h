@@ -110,7 +110,7 @@ void trainClass(TsetlinMachineRun* tmr) {
 	tmr->dataIndex = index;
 }
 
-int inferClass(TsetlinMachineRun* mctm, int input[FEATURES]) {
+int inferClass(TsetlinMachineRun* mctm, uint8_t input[FEATURES]) {
 	int maxClassSum = 0;
 	int maxClass = 0;
 	for(int i=0; i<CLASSES; i++) {

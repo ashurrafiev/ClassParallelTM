@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
 #include "TsetlinLoggerDefs.h"
 
@@ -60,7 +61,7 @@ struct TsetlinMachine {
 #define INCLUDE_LITERAL(state) ((state) >= BORDERLINE_INCLUDE)
 
 
-int calculateOutput(Clause* clause, int input[], int eval) {
+int calculateOutput(Clause* clause, uint8_t input[], int eval) {
 	clause->output = 1;
 	int inc = 0;
 	// calculate conjunction over k literals
@@ -112,7 +113,7 @@ TsetlinMachine* createTsetlinMachine() {
 /**
  * Update clauses for the given input vector
  */
-void calculateClauseOutputs(TsetlinMachine* tm, int input[], int eval) {
+void calculateClauseOutputs(TsetlinMachine* tm, uint8_t input[], int eval) {
 	for(int j=0; j<CLAUSES; j++) {
 		calculateOutput(&tm->clauses[j], input, eval);
 	}
@@ -134,7 +135,7 @@ int calculateVoting(TsetlinMachine* tm) {
 	return sum;
 }
 
-void precalcRand(unsigned char probs[]) {
+void precalcRand(uint8_t probs[]) {
 	memset(probs, 0, LITERALS*sizeof(unsigned char));
 	// The number of "active" elements should be random with Binomial distr;
 	// however, using just the mean value does not reduce the training accuracy in practice
@@ -144,7 +145,7 @@ void precalcRand(unsigned char probs[]) {
 	while(active--) {
 		int koffs = rand();
 		for(int ki=0; ki<LITERALS; ki++) {
-			unsigned char* p = &probs[(ki+koffs) % LITERALS];
+			uint8_t* p = &probs[(ki+koffs) % LITERALS];
 			if(!(*p)) {
 				*p = 1;
 				break;
@@ -157,7 +158,7 @@ void precalcRand(unsigned char probs[]) {
 
 // ------------------- Literal limiting -------------------
 
-void typeIFeedbackLiteral(int k, Clause* clause, int input[], unsigned char prob) {
+void typeIFeedbackLiteral(int k, Clause* clause, uint8_t input[], uint8_t prob) {
 	if(clause->output && LITERAL_VALUE(input, k)) { // clause is 1 and literal is 1
 		if(BOOST_POS || !prob) {
 			updateTA(&clause->ta[k], PROMOTE);
@@ -178,8 +179,8 @@ void typeIFeedbackLiteral(int k, Clause* clause, int input[], unsigned char prob
 	}
 }
 
-int typeIFeedback(Clause* clause, int input[], int T) {
-	unsigned char probs[LITERALS];
+int typeIFeedback(Clause* clause, uint8_t input[], int T) {
+	uint8_t probs[LITERALS];
 	precalcRand(probs);
 	
 	int count = 0;
@@ -190,7 +191,7 @@ int typeIFeedback(Clause* clause, int input[], int T) {
 		if(clause->literalCnt > T)
 			clause->literalCnt = T;
 			
-		double feedbackProbability = (T - clause->literalCnt) / (double)T;
+		float feedbackProbability = (T - clause->literalCnt) / (float)T;
 		if(WITH_PROBABILITY(feedbackProbability)) {
 			#if ENABLE_COUNTERS
 				count++;
@@ -212,7 +213,7 @@ bool typeIIFeedbackLiteral(int k, Clause* clause, int literalValue) {
 	return false;
 }
 
-int typeIIFeedback(Clause* clause, int input[]) {
+int typeIIFeedback(Clause* clause, uint8_t input[]) {
 	// only if clause is 1
 	if(clause->output) {
 		int count = 0;
@@ -234,7 +235,7 @@ int typeIIFeedback(Clause* clause, int input[]) {
 	}
 }
 
-void prepareUpdateClauses(TsetlinMachine* tm, int input[]) {
+void prepareUpdateClauses(TsetlinMachine* tm, uint8_t input[]) {
 	for(int j=0; j<CLAUSES; j++) {
 		tm->clauses[j].literalCnt = 0;
 		for(int k=0; k<LITERALS; k++) {
@@ -248,7 +249,7 @@ void prepareUpdateClauses(TsetlinMachine* tm, int input[]) {
 	}
 }
 
-void updateClause(int j, TsetlinMachine* tm, int input[], int y, int classSum) {
+void updateClause(int j, TsetlinMachine* tm, uint8_t input[], uint8_t y, int classSum) {
 	// inverse the decision for negatively-voting clauses
 	if(VOTE(j)<0)
 		y = !y;
@@ -262,7 +263,7 @@ void updateClause(int j, TsetlinMachine* tm, int input[], int y, int classSum) {
 
 // ------------------- No literal limiting (class-sums) -------------------
 
-void typeIFeedbackLiteral(int k, Clause* clause, int literalValue, unsigned char prob) {
+void typeIFeedbackLiteral(int k, Clause* clause, int literalValue, uint8_t prob) {
 	if(clause->output && literalValue) { // clause is 1 and literal is 1
 		if(BOOST_POS || !prob)
 			updateTA(&clause->ta[k], PROMOTE);
@@ -273,8 +274,8 @@ void typeIFeedbackLiteral(int k, Clause* clause, int literalValue, unsigned char
 	}
 }
 
-void typeIFeedback(Clause* clause, int input[]) {
-	unsigned char probs[LITERALS];
+void typeIFeedback(Clause* clause, uint8_t input[]) {
+	uint8_t probs[LITERALS];
 	precalcRand(probs);
 	for(int k=0; k<LITERALS; k++) {
 		typeIFeedbackLiteral(k, clause, LITERAL_VALUE(input, k), probs[k]);
@@ -286,7 +287,7 @@ void typeIIFeedbackLiteral(int k, Clause* clause, int literalValue) {
 		updateTA(&clause->ta[k], PROMOTE);
 }
 
-void typeIIFeedback(Clause* clause, int input[]) {
+void typeIIFeedback(Clause* clause, uint8_t input[]) {
 	// only if clause is 1
 	if(clause->output) {
 		for(int k=0; k<LITERALS; k++) {
@@ -295,9 +296,9 @@ void typeIIFeedback(Clause* clause, int input[]) {
 	}
 }
 
-void updateClause(int j, TsetlinMachine* tm, int input[], int y, int classSum) {
+void updateClause(int j, TsetlinMachine* tm, uint8_t input[], uint8_t y, int classSum) {
 	// calculate feedback probability
-	double feedbackProbability = (tm->threshold - (double)classSum) / (2.0 * tm->threshold);
+	float feedbackProbability = (tm->threshold - (float)classSum) / (2.0 * tm->threshold);
 	if(!y)
 		feedbackProbability = 1.0 - feedbackProbability;
 	// inverse the decision for negatively-voting clauses
@@ -321,7 +322,7 @@ void updateClause(int j, TsetlinMachine* tm, int input[], int y, int classSum) {
 
 // ------------------- Core update function -------------------
 
-void update(TsetlinMachine* tm, int input[], int output) {
+void update(TsetlinMachine* tm, uint8_t input[], uint8_t output) {
 	#if ENABLE_COUNTERS
 	for(int j=0; j<CLAUSES; j++)
 		for(int k=0; k<LITERALS; k++) {
@@ -369,7 +370,7 @@ void update(TsetlinMachine* tm, int input[], int output) {
 	#endif
 }
 
-int score(TsetlinMachine* tm, int input[]) {
+int score(TsetlinMachine* tm, uint8_t input[]) {
 	calculateClauseOutputs(tm, input, 1);
 	return calculateVoting(tm);
 }
