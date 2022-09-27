@@ -83,6 +83,11 @@ void startLogStatus(int cls, LogStatus* log) {
 		fprintf(log->fp, "avote\t");
 		fprintf(log->fp, "vote1\t");
 		fprintf(log->fp, "vote0\t");
+		fprintf(log->fp, "v1min\t");
+		fprintf(log->fp, "v1max\t");
+		fprintf(log->fp, "v0min\t");
+		fprintf(log->fp, "v0max\t");
+		fprintf(log->fp, "ccorr\t");
 		fprintf(log->fp, "\n");
 		fflush(log->fp);
 	}
@@ -105,6 +110,15 @@ void logStatus(LogStatus* log, int step, int stepSize, TsetlinMachine* tm) {
 		tm->voteSum1 = 0;
 	fprintf(log->fp, "%.3lf\t", tm->voteSum0/(double)stepSize);
 		tm->voteSum0 = 0;
+	fprintf(log->fp, "%d\t", tm->minVote1);
+		tm->minVote1 = 0;
+	fprintf(log->fp, "%d\t", tm->maxVote1);
+		tm->maxVote1 = 0;
+	fprintf(log->fp, "%d\t", tm->minVote0);
+		tm->minVote0 = 0;
+	fprintf(log->fp, "%d\t", tm->maxVote0);
+		tm->maxVote0 = 0;
+	fprintf(log->fp, "%.3f\t", (float) calcClauseSimilarity(tm));
 	fprintf(log->fp, "\n");
 	fflush(log->fp);
 }
@@ -119,7 +133,6 @@ void finishLogStatus(LogStatus* log) {
 
 struct LogAcc {
 	FILE* fp;
-	float accTrain[CLASSES];
 	float accTest[CLASSES];
 };
 
@@ -133,15 +146,16 @@ void startLogAcc(LogAcc* log) {
 	}
 	if(!LOG_APPEND) {
 		fprintf(log->fp, "t\t");
+		fprintf(log->fp, "seed\t");
+		fprintf(log->fp, "s\t");
 		for(int i=0; i<CLASSES; i++)
-			fprintf(log->fp, "acctrain%d\t", i);
+			fprintf(log->fp, "t%d\t", i);
 		for(int i=0; i<CLASSES; i++)
 			fprintf(log->fp, "acctest%d\t", i);
+		fprintf(log->fp, "avgacctest\t");
 		fprintf(log->fp, "\n");
 		fflush(log->fp);
 	}
-	for(int i=0; i<CLASSES; i++)
-		log->accTrain[i] = 0;
 	for(int i=0; i<CLASSES; i++)
 		log->accTest[i] = 0;
 }
@@ -150,10 +164,13 @@ void logAcc(LogAcc* log, int step) {
 	if(!LOG_ACCEVAL)
 		return;
 	fprintf(log->fp, "%d\t", step);
+	fprintf(log->fp, "%d\t", RAND_SEED);
+	fprintf(log->fp, "%.3f\t", L_RATE);
 	for(int i=0; i<CLASSES; i++)
-		fprintf(log->fp, "%.3f\t", log->accTrain[i]);
+		fprintf(log->fp, "%.3f\t", THRESHOLD_SET[i]);
 	for(int i=0; i<CLASSES; i++)
 		fprintf(log->fp, "%.3f\t", log->accTest[i]);
+	fprintf(log->fp, "%.3f\t", calcAverage(log->accTest, CLASSES));
 	fprintf(log->fp, "\n");
 	fflush(log->fp);
 }

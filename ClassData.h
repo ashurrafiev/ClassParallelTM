@@ -5,10 +5,11 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 
 struct DataSet {
-	int (*inputs)[FEATURES] = NULL;
-	int *outputs = NULL;
+	uint8_t (*inputs)[FEATURES] = NULL;
+	uint8_t *outputs = NULL;
 	int num;
 };
 
@@ -16,8 +17,8 @@ void allocData(DataSet *data, int num) {
 	if(num<=0)
 		return;
 	data->num = num;
-	data->inputs = (int(*)[FEATURES]) malloc(num*FEATURES*sizeof(int));
-	data->outputs = (int*) malloc(num*sizeof(int));
+	data->inputs = (uint8_t(*)[FEATURES]) malloc(num*FEATURES*sizeof(uint8_t));
+	data->outputs = (uint8_t*) malloc(num*sizeof(uint8_t));
 }
 
 void freeData(DataSet *data) {
@@ -45,7 +46,7 @@ void readPkBits(DataSet *data, int num, const char* path) {
 	printf("Reading %s (%d data items) ...\n", path, num);
 
 	size_t size = num*(featureBytes+1);
-	unsigned char* buf = (unsigned char*) malloc(size);
+	uint8_t* buf = (uint8_t*) malloc(size);
 	if(fread(buf, 1, size, fp)!=size) {
 		printf("Unexpected end of file.\n");
 		exit(EXIT_FAILURE);
@@ -58,12 +59,12 @@ void readPkBits(DataSet *data, int num, const char* path) {
 		for(int j=0; j<featureBytes; j++) {
 			int b = (int) buf[offs++];
 			for(int d=0; d<8 && k<FEATURES; d++) {
-				data->inputs[i][k] = b&1;
+				data->inputs[i][k] = (uint8_t)(b&1);
 				b >>= 1;
 				k++;
 			}
 		}
-		data->outputs[i] = (int) buf[offs++];
+		data->outputs[i] = (uint8_t) buf[offs++];
 	}
 	fclose(fp);
 	free(buf);

@@ -25,7 +25,11 @@ int LOG_APPEND = 0;
 	int countType2; \
 	int absVoteSum; \
 	int voteSum1; \
-	int voteSum0; 
+	int voteSum0; \
+	int minVote1; \
+	int maxVote1; \
+	int minVote0; \
+	int maxVote0; 
 
 #define RESET_COUNTERS(tm) \
 	tm->flips = 0; \
@@ -33,7 +37,11 @@ int LOG_APPEND = 0;
 	tm->countType2 = 1; \
 	tm->absVoteSum = 0; \
 	tm->voteSum1 = 0; \
-	tm->voteSum0 = 0; 
+	tm->voteSum0 = 0; \
+	tm->minVote1 = 0; \
+	tm->maxVote1 = 0; \
+	tm->minVote0 = 0; \
+	tm->maxVote0 = 0; 
 
 #define COUNT(c) (c)++
 

@@ -17,6 +17,7 @@ struct TsetlinMachineRun {
 
 void initializeClass(TsetlinMachineRun* tmr, DataSet* trainData, int id) {
 	tmr->id = id;
+	tmr->tm.threshold = THRESHOLD_SET[id];
 	initialize(&tmr->tm);
 	tmr->epoch = 0;
 	tmr->dataIndex = 0;
@@ -39,7 +40,7 @@ TsetlinMachineRun* createMultiClassTsetlinMachine(DataSet* trainData) {
 void remapState(TsetlinMachineRun* tmr) {
 	for(int j=0; j<CLAUSES; j++)
 		for(int k=0; k<LITERALS; k++) {
-			int* ta = &tmr->tm.clauses[j].ta[k];
+			ta_t* ta = &tmr->tm.clauses[j].ta[k];
 			if(INCLUDE_LITERAL(*ta))
 				*ta = 1;
 			else
@@ -63,8 +64,11 @@ int loadState(TsetlinMachineRun* tmr) {
 		else {
 			fscanf(fp, "%d %d %d", &step, &tmr->epoch, &tmr->dataIndex);
 			for(int j=0; j<CLAUSES; j++)
-				for(int k=0; k<LITERALS; k++)
-					fscanf(fp, "%d", &tmr->tm.clauses[j].ta[k]);
+				for(int k=0; k<LITERALS; k++) {
+					int ta;
+					fscanf(fp, "%d", &ta);
+					tmr->tm.clauses[j].ta[k] = (ta_t) ta;
+				}
 		}
 		fclose(fp);
 	}
@@ -85,8 +89,10 @@ void saveState(TsetlinMachineRun* tmr, int step) {
 		}
 		fprintf(fp, "%d\t%d\t%d\n", step, tmr->epoch, tmr->dataIndex);
 		for(int j=0; j<CLAUSES; j++)
-			for(int k=0; k<LITERALS; k++)
-				fprintf(fp, "\t%d", tmr->tm.clauses[j].ta[k]);
+			for(int k=0; k<LITERALS; k++) {
+				int ta = tmr->tm.clauses[j].ta[k];
+				fprintf(fp, "\t%d", ta);
+			}
 		fprintf(fp, "\n");
 		fclose(fp);
 	}
@@ -97,7 +103,8 @@ void trainClass(TsetlinMachineRun* tmr) {
 	int numData = data->num;
 	int index = tmr->dataIndex;
 	
-	for(int l=0; l<TRAIN_STEP_SIZE; l++) {
+	int stepSize = (TRAIN_MASK & (1 << tmr->id)) ? TRAIN_STEP_SIZE : 0;
+	for(int l=0; l<stepSize; l++) {
 		update(&tmr->tm, data->inputs[index], data->outputs[index]);
 		index++;
 		if(index>=numData) {
@@ -108,7 +115,7 @@ void trainClass(TsetlinMachineRun* tmr) {
 	tmr->dataIndex = index;
 }
 
-int inferClass(TsetlinMachineRun* mctm, int input[FEATURES]) {
+int inferClass(TsetlinMachineRun* mctm, uint8_t input[FEATURES]) {
 	int maxClassSum = 0;
 	int maxClass = 0;
 	for(int i=0; i<CLASSES; i++) {
@@ -192,6 +199,13 @@ void evaluateClassesComb(TsetlinMachineRun* tmr, DataSet* data, float acc[], int
 		if(acc!=NULL)
 			acc[i] = a;
 	}
+}
+
+float calcAverage(float x[], int n) {
+	float sum = 0.0;
+	for(int i=0; i<n; i++)
+		sum += x[i];
+	return sum/n;
 }
 
 #endif

@@ -29,12 +29,22 @@ double elapsedCpu(unsigned long start) {
 }
 
 void setParams(int argc, char**argv) {
+	double T = DEFAULT_THRESHOLD_N;
+	char Ts[128] = "";
+	const char sep[2] = ",";
+	char *token;
+	char *end;
+	char tmask[36] = "11111111111111111111111111111110";
+   
 	ParseParamDefs params;
 	startParamDefs(&params);
 	addIntParam(&params, "-step-size", &TRAIN_STEP_SIZE, NULL);
 	addIntParam(&params, "-steps", &TRAIN_STEPS, NULL);
 	addDoubleParam(&params, "-s", &L_RATE, "learning rate s");
-	addDoubleParam(&params, "-t", &L_NORM_THRESHOLD, "threshold T (normalised)");
+	addIntParam(&params, "-boost-pos", &BOOST_POS, "boost positive feedback (0 or 1)");
+	addDoubleParam(&params, "-t", &T, "threshold T");
+	addStrParam(&params, "-ts", Ts, 128, "comma-separated threshold list");
+	addIntParam(&params, "-tnorm", &T_NORM, "T values are normalized (0 or 1)");
 	addIntParam(&params, "-rand-seed", &RAND_SEED, NULL);
 	addIntParam(&params, "-acc-eval-train", &ACC_EVAL_TRAIN, NULL);
 	addIntParam(&params, "-acc-eval-test", &ACC_EVAL_TEST, NULL);
@@ -45,23 +55,59 @@ void setParams(int argc, char**argv) {
 	addStrParam(&params, "-load-state", LOAD_STATE_FMT, 1024, "path format, %d is replaced by a class index");
 	addFlagParam(&params, "-remap-state", &REMAP_STATE, NULL);
 	addStrParam(&params, "-save-state", SAVE_STATE_FMT, 1024, "path format, %d is replaced by a class index");
-	addIntParam(&params, "-par", &PARALLEL_TRAIN, NULL);
+	addStrParam(&params, "-train-mask", tmask, 36, "binary mask to enable training per class");
+	addIntParam(&params, "-par", &PARALLEL_TRAIN, "parallel version (0 or 1)");
 	if(!parseParams(&params, argc, argv)) {
 		exit(EXIT_FAILURE);
 	}
 
+	token = strtok(Ts, sep);
+	for(int i=0; i<CLASSES; i++) {
+		if(token!=NULL) {
+			THRESHOLD_SET[i] = DENORM_THRESHOLD(strtod(token, &end));
+			if(end==token) {
+				printf("Expected comma-separated float values for option -ts\n\n");
+				printUsage(&params);
+				exit(EXIT_FAILURE);
+			}
+			token = strtok(NULL, sep);
+		}
+		else {
+			THRESHOLD_SET[i] = DENORM_THRESHOLD(T);
+		}
+	}
+	
 	printf("CLAUSES = %d\n", CLAUSES);
 	printf("L_RATE = %f\n", L_RATE);
-	printf("L_NORM_THRESHOLD = %f\n", L_NORM_THRESHOLD);
-	printf("L_THRESHOLD = %f\n", L_THRESHOLD);
+	
+	#if LIT_LIMIT
+		printf("!LITERAL! THRESHOLDS = [");
+	#else
+		printf("THRESHOLDS = [");
+	#endif
+	for(int i=0; i<CLASSES; i++) {
+		if(i>0) printf(", ");
+		printf("%d:%.1f", i, THRESHOLD_SET[i]);
+	}
+	printf("]\n");
+
+	int len = strlen(tmask);
+	TRAIN_MASK = 0;
+	for(int i=0; i<CLASSES; i++) {
+		int d = 1;
+		if(i<len && tmask[i]=='0') {
+			d = 0;
+			printf("- skip training class %d\n", i);
+		}
+		TRAIN_MASK |= d<<i;
+	}
+
 	if(RAND_SEED) {
-		printf("Random seed: %u (fixed)\n", RAND_SEED);
-		srand(RAND_SEED);
+		printf("Random seed: %d (fixed)\n", RAND_SEED);
 	}
 	else {
-		unsigned long seed = wallclock();
-		printf("Random seed: %lu (time)\n", seed);
-		srand(seed);
+		RAND_SEED = (int)wallclock();
+		printf("Random seed: %d (wallclock)\n", RAND_SEED);
 	}
 }
 
@@ -75,7 +121,7 @@ void readData(void) {
 }
 
 void evaluateAcc(TsetlinMachineRun* tmr, LogAcc* acc, int step, bool print, int (*pipes)[CLASSES][2]) {
-	if((ACC_EVAL_TRAIN>0 && step==0)
+	/*if((ACC_EVAL_TRAIN>0 && step==0)
 			|| (ACC_EVAL_TRAIN>0 && step%ACC_EVAL_TRAIN==0)
 			|| (ACC_EVAL_TRAIN==-1 && step==-1)) {
 		unsigned long startEval = cputime();
@@ -90,7 +136,7 @@ void evaluateAcc(TsetlinMachineRun* tmr, LogAcc* acc, int step, bool print, int 
 			}
 			printf("  AVG %f\n", sum/(float)CLASSES);
 		}
-	}
+	}*/
 	if((ACC_EVAL_TEST>0 && step==0)
 			|| (ACC_EVAL_TEST>0 && step%ACC_EVAL_TEST==0)
 			|| (ACC_EVAL_TEST==-1 && step==-1)) {
@@ -137,6 +183,8 @@ int main(int argc, char**argv) {
 				}
 				
 				// child loop
+				srand(RAND_SEED+i);
+				
 				LogTAStates logStates;
 				LogStatus log;
 				startLogTAStates(i, &logStates);
@@ -185,6 +233,8 @@ int main(int argc, char**argv) {
 			wait(NULL);
 	}
 	else {
+		srand(RAND_SEED);
+		
 		LogTAStates logStates[CLASSES];
 		LogStatus log[CLASSES];
 		for(int i=0; i<CLASSES; i++) {

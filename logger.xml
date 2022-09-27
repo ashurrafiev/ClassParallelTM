@@ -23,12 +23,21 @@
 	<event id="avote" counter="absVoteSum" avg="stepSize" reset="0" />
 	<event id="vote1" counter="voteSum1" avg="stepSize" reset="0" />
 	<event id="vote0" counter="voteSum0" avg="stepSize" reset="0" />
+	<event id="v1min" counter="minVote1" />
+	<event id="v1max" counter="maxVote1" />
+	<event id="v0min" counter="minVote0" />
+	<event id="v0max" counter="maxVote0" />
+	<var id="ccorr" type="float"> (float) calcClauseSimilarity(tm) </var>
 </status>
 
 <status name="Acc" scope="global"
 		path="acc.csv" enable="LOG_ACCEVAL">
-	<var id="acctrain" cache="accTrain" group="CLASSES" />
+	<var id="seed" type="int"> RAND_SEED </var>
+	<var id="s"> L_RATE </var>
+	<var id="t" group="CLASSES"> THRESHOLD_SET[i] </var>
+	<!-- <var id="acctrain" cache="accTrain" group="CLASSES" /> -->
 	<var id="acctest" cache="accTest" group="CLASSES" />
+	<var id="avgacctest"> calcAverage(log->accTest, CLASSES) </var>
 </status>
 
 </logger>

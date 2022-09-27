@@ -4,6 +4,7 @@ preview
 *.txt
 
 bak/
+plot/*.pdf
 
 *.jar
 *.svg

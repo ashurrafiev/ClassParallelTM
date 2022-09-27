@@ -1,1 +1,1 @@
-./mnist -step-size 200 -steps 180 -acc-eval-test 1 -log-status -log-acc -par 1
+./mnist -step-size 12000 -steps 1 -acc-eval-test -1 -par 1
