@@ -25,7 +25,7 @@ int T_NORM = 1;
 #endif
 double THRESHOLD_SET[CLASSES];
 
-#define INPUT_DATA_PATH "../../poets/tsetlin/pkbits"
+#define INPUT_DATA_PATH "pkbits"
 
 #define TRAIN_DATA_FMT "/mnist-train-cls%d.bin"
 #define TEST_DATA "/mnist-test.bin"

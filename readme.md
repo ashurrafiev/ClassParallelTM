@@ -50,9 +50,9 @@ Some parameters are hard-coded in `TsetlinOptions.h` and require recompilation w
 | `CLAUSES` | `int` | 200 | number of clauses per class |
 | `NUM_STATES` | `int` | 100 | number of TA states per decision; exclude states are `(-NUM_STATES+1) .. 0`, include states are `1 .. NUM_STATES` |
 | `LIT_LIMIT` | `0`&nbsp;or&nbsp;`1` | `0` | toggle **literal-limiting** feedback algorithm |
-| `INPUT_DATA_PATH` | `string` | `"../../poets/tsetlin/pkbits"` | path to input data directory |
-| `TRAIN_DATA_FMT` | `string` | `"/mnist-train-cls%d.bin"` | format of the train data input file (per-class, `%d` is replaced with the class index); the file is in [pkbits](https://github.com/ashurrafiev/AuxTsetlinTools#packed-bits-format) format |
-| `TEST_DATA` | `string` | `"/mnist-test.bin"` | test data file name; the file is in [pkbits](https://github.com/ashurrafiev/AuxTsetlinTools#packed-bits-format) format |
+| `INPUT_DATA_PATH` | `char*` | `"pkbits"` | path to input data directory |
+| `TRAIN_DATA_FMT` | `char*` | `"/mnist-train-cls%d.bin"` | format of the train data input file (per-class, `%d` is replaced with the class index); the file is in [pkbits](https://github.com/ashurrafiev/AuxTsetlinTools#packed-bits-format) format |
+| `TEST_DATA` | `char*` | `"/mnist-test.bin"` | test data file name; the file is in [pkbits](https://github.com/ashurrafiev/AuxTsetlinTools#packed-bits-format) format |
 
 ## Build instructions
 

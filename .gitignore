@@ -4,6 +4,7 @@ preview
 *.csv
 *.txt
 
+pkbits/
 bak/
 plot/*.pdf
 
